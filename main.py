@@ -1,6 +1,6 @@
 # main.py
 """
-The main entry point for the Summation Check application.
+The main entry point for the Summation Check application. 
 
 This script initializes the application, creates the main window,
 and starts the event loop.
@@ -31,13 +31,13 @@ def main():
 
     # Set up the file monitor
     downloads_folder = config.get("downloads_folder")
-    summary_file = config.get("summary_file_path")
+    project_file = config.get("project_file_path")
     
-    if not downloads_folder or not summary_file:
+    if not downloads_folder or not project_file:
         logger.warning("Downloads folder or summary file path not configured.")
         # In a real app, you might want to prompt the user to configure this.
     
-    file_monitor = FileMonitor(downloads_folder, summary_file)
+    file_monitor = FileMonitor(downloads_folder, project_file)
     
     # Connect file monitor signals to controller slots
     file_monitor.event_handler.pdf_detected.connect(controller.on_pdf_detected)
@@ -45,7 +45,7 @@ def main():
     
     # Start the monitor
     file_monitor.start()
-    logger.info(f"Monitoring '{downloads_folder}' and '{summary_file}'")
+    logger.info(f"Monitoring '{downloads_folder}' and '{project_file}'")
 
 
     # Show the main window and start the application
