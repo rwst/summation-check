@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import QFileDialog
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 from config import config, save_config
 from file_monitor import FileMonitor
+from match_metadata import match_pdf_to_metadata, extract_metadata_from_project_file
 
 class Controller(QObject):
     """
@@ -32,9 +33,11 @@ class Controller(QObject):
         self.view = view
         self.log_handler = log_handler
         self.file_monitor = FileMonitor()
+        self.metadata_set = []
         self.connect_signals()
         self.status_updated.emit("Controller initialized.")
         self.file_monitor.start()
+        self.load_initial_metadata()
 
     def connect_signals(self):
         """
@@ -89,21 +92,70 @@ class Controller(QObject):
             self.file_monitor.stop()
             self.file_monitor.start()
 
+    def load_initial_metadata(self):
+        """Loads metadata from the project file on startup."""
+        project_file = config.get("project_file_path")
+        if project_file and os.path.exists(project_file):
+            self.on_summary_file_changed(project_file)
+
     @pyqtSlot(str)
     def on_pdf_detected(self, file_path):
         """
         Handles the event when a new PDF is detected.
         """
         self.status_updated.emit(f"New PDF detected: {file_path}")
-        # Here you would add logic to process the PDF
+        if not self.metadata_set:
+            self.status_updated.emit("No metadata loaded, cannot process new PDF.")
+            return
+        
+        match = match_pdf_to_metadata(file_path, self.metadata_set)
+        if match:
+            logging.info(f"PDF '{os.path.basename(file_path)}' matched with metadata: '{match['title']}'")
+            self.status_updated.emit(f"PDF '{os.path.basename(file_path)}' matched with: '{match['title']}'")
+        else:
+            logging.info(f"No match found for PDF '{os.path.basename(file_path)}'")
+            self.status_updated.emit(f"No match for PDF: '{os.path.basename(file_path)}'")
 
     @pyqtSlot(str)
     def on_summary_file_changed(self, file_path):
         """
         Handles the event when the summary file is changed.
         """
-        self.status_updated.emit(f"Summary file updated: {file_path}")
-        # Here you would add logic to parse the summary file
+        self.status_updated.emit(f"Project file updated: {file_path}. Loading new metadata.")
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            self.metadata_set = extract_metadata_from_project_file(content)
+            self.status_updated.emit(f"Successfully loaded {len(self.metadata_set)} metadata entries.")
+            self.process_existing_pdfs()
+        except Exception as e:
+            self.error_occurred.emit(f"Error reading project file: {e}")
+            logging.error(f"Error reading project file: {e}")
+
+    def process_existing_pdfs(self):
+        """
+        Processes all PDFs in the dedicated folder against the current metadata.
+        """
+        pdf_folder = config.get("dedicated_pdf_folder")
+        if not self.metadata_set:
+            self.status_updated.emit("No metadata loaded, skipping PDF processing.")
+            return
+
+        if not os.path.exists(pdf_folder):
+            self.status_updated.emit(f"PDF folder not found: {pdf_folder}")
+            return
+
+        self.status_updated.emit(f"Processing PDFs in {pdf_folder}...")
+        for filename in os.listdir(pdf_folder):
+            if filename.lower().endswith(".pdf"):
+                pdf_path = os.path.join(pdf_folder, filename)
+                match = match_pdf_to_metadata(pdf_path, self.metadata_set)
+                if match:
+                    logging.info(f"PDF '{filename}' matched with metadata: '{match['title']}'")
+                    self.status_updated.emit(f"PDF '{filename}' matched with: '{match['title']}'")
+                else:
+                    logging.info(f"No match found for PDF '{filename}'")
+                    self.status_updated.emit(f"No match for PDF: '{filename}'")
 
     def start_qc_process(self):
         """
@@ -115,6 +167,7 @@ class Controller(QObject):
         # 2. Start the PDF processing and metadata matching.
         # 3. Update the UI with the results.
         print("QC Process Started!")
+        self.process_existing_pdfs()
 
     def cleanup(self):
         """Stops the file monitor and removes the log handler."""
