@@ -6,9 +6,11 @@ This module acts as the central hub, coordinating interactions between
 the UI (view), the file system monitor, and data processing modules.
 """
 import os
+import logging
 from PyQt5.QtWidgets import QFileDialog
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 from config import config, save_config
+from file_monitor import FileMonitor
 
 class Controller(QObject):
     """
@@ -18,17 +20,21 @@ class Controller(QObject):
     status_updated = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
 
-    def __init__(self, view):
+    def __init__(self, view, log_handler):
         """
         Initializes the Controller.
 
         Args:
             view: The main UI window instance.
+            log_handler: The UI log handler.
         """
         super().__init__()
         self.view = view
+        self.log_handler = log_handler
+        self.file_monitor = FileMonitor()
         self.connect_signals()
         self.status_updated.emit("Controller initialized.")
+        self.file_monitor.start()
 
     def connect_signals(self):
         """
@@ -41,6 +47,10 @@ class Controller(QObject):
         self.status_updated.connect(self.view.update_status_display)
         self.error_occurred.connect(self.view.update_status_display)
 
+        # Connect file monitor signals
+        self.file_monitor.event_handler.pdf_detected.connect(self.on_pdf_detected)
+        self.file_monitor.event_handler.summary_file_changed.connect(self.on_summary_file_changed)
+
     def select_downloads_folder(self):
         """Opens a dialog to select the downloads folder."""
         folder = QFileDialog.getExistingDirectory(self.view, "Select Downloads Folder")
@@ -49,6 +59,9 @@ class Controller(QObject):
             save_config(config)
             self.view.downloads_button.setText(folder)
             self.status_updated.emit(f"Downloads folder set to: {folder}")
+            # Restart the monitor to watch the new folder
+            self.file_monitor.stop()
+            self.file_monitor.start()
 
     def select_pdf_folder(self):
         """Opens a dialog to select the dedicated PDF folder."""
@@ -72,6 +85,9 @@ class Controller(QObject):
             save_config(config)
             self.view.project_file_button.setText(file)
             self.status_updated.emit(f"Project file set to: {file}")
+            # Restart the monitor to watch the new folder
+            self.file_monitor.stop()
+            self.file_monitor.start()
 
     @pyqtSlot(str)
     def on_pdf_detected(self, file_path):
@@ -99,5 +115,10 @@ class Controller(QObject):
         # 2. Start the PDF processing and metadata matching.
         # 3. Update the UI with the results.
         print("QC Process Started!")
+
+    def cleanup(self):
+        """Stops the file monitor and removes the log handler."""
+        self.file_monitor.stop()
+        logging.getLogger().removeHandler(self.log_handler)
 
     # Add other methods to handle application logic here

@@ -9,10 +9,13 @@ location for new files or modifications using the 'watchdog' library.
 import time
 import os
 import shutil
+import logging
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 from PyQt5.QtCore import QObject, pyqtSignal
 from config import config
+
+logger = logging.getLogger(__name__)
 
 class FileChangeHandler(FileSystemEventHandler, QObject):
     """
@@ -37,7 +40,7 @@ class FileChangeHandler(FileSystemEventHandler, QObject):
                time.time() - self.processed_files[event.src_path] < 5: # 5-second cooldown
                 return
             
-            print(f"New PDF detected: {event.src_path}")
+            logger.info(f"New PDF detected: {event.src_path}")
             try:
                 # Wait a moment for the file to be fully written
                 time.sleep(1)
@@ -45,19 +48,19 @@ class FileChangeHandler(FileSystemEventHandler, QObject):
                 file_name = os.path.basename(event.src_path)
                 destination_path = os.path.join(self.pdf_folder, file_name)
                 shutil.move(event.src_path, destination_path)
-                print(f"Moved PDF to: {destination_path}")
+                logger.info(f"Moved PDF to: {destination_path}")
                 
                 # Mark as processed
                 self.processed_files[event.src_path] = time.time()
                 self.pdf_detected.emit(destination_path)
             except (shutil.Error, IOError) as e:
-                print(f"Error moving file {event.src_path}: {e}")
+                logger.error(f"Error moving file {event.src_path}: {e}")
 
 
     def on_modified(self, event):
         """Called when a file or directory is modified."""
         if isinstance(event, FileModifiedEvent) and os.path.abspath(event.src_path) == self.summary_file_path:
-             print(f"Summary file changed: {event.src_path}")
+             logger.info(f"Summary file changed: {event.src_path}")
              self.summary_file_changed.emit(event.src_path)
 
 
@@ -89,9 +92,9 @@ class FileMonitor:
 
         if self.observer.emitters:
             self.observer.start()
-            print(f"Started monitoring {self.downloads_path} and {os.path.dirname(self.project_path)}")
+            logger.info(f"Started monitoring {self.downloads_path} and {os.path.dirname(self.project_path)}")
         else:
-            print("Monitoring could not be started. Check config paths.")
+            logger.warning("Monitoring could not be started. Check config paths.")
 
 
     def stop(self):
@@ -101,4 +104,4 @@ class FileMonitor:
         if self.observer.is_alive():
             self.observer.stop()
             self.observer.join()
-            print("Stopped monitoring.")
+            logger.info("Stopped monitoring.")

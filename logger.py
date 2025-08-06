@@ -7,9 +7,27 @@ Provides a centralized way to log application events and handle errors gracefull
 
 import logging
 import os
+from PyQt5.QtCore import QObject, pyqtSignal
 
 LOG_DIR = "logs"
 LOG_FILE = os.path.join(LOG_DIR, "application.log")
+
+class QLogHandler(QObject, logging.Handler):
+    """
+    A custom logging handler that emits a PyQt signal for each log record.
+    """
+    log_emitted = pyqtSignal(str)
+
+    def __init__(self):
+        QObject.__init__(self)
+        logging.Handler.__init__(self)
+
+    def emit(self, record):
+        """
+        Emits the formatted log record as a signal.
+        """
+        msg = self.format(record)
+        self.log_emitted.emit(msg)
 
 def setup_logger():
     """
@@ -48,6 +66,15 @@ def setup_logger():
     logger.addHandler(console_handler)
 
     return logger
+
+# Custom Exception examples
+class MetadataNotFoundError(Exception):
+    """Custom exception for when metadata cannot be found."""
+    pass
+
+class PdfProcessingError(Exception):
+    """Custom exception for errors during PDF processing."""
+    pass
 
 # Custom Exception examples
 class MetadataNotFoundError(Exception):

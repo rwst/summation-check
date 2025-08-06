@@ -7,11 +7,11 @@ and starts the event loop.
 """
 
 import sys
+import logging
 from PyQt5.QtWidgets import QApplication
 from ui_view import MainAppWindow
 from controller import Controller
-from logger import setup_logger
-from file_monitor import FileMonitor
+from logger import setup_logger, QLogHandler
 from config import config  # Import the loaded config
 
 def main():
@@ -25,30 +25,25 @@ def main():
     # Create the application instance
     app = QApplication(sys.argv)
 
+    # Set up the logging handler for the UI
+    log_handler = QLogHandler()
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    log_handler.setFormatter(formatter)
+    logging.getLogger().addHandler(log_handler)
+
     # Create the main window and controller
     main_window = MainAppWindow()
-    controller = Controller(main_window)
+    controller = Controller(main_window, log_handler)
 
-    # Set up the file monitor
-    if not config.get("downloads_folder") or not config.get("project_file_path") or not config.get("dedicated_pdf_folder"):
-        logger.warning("Downloads/PDF folders or project file path not configured.")
-    
-    file_monitor = FileMonitor()
-    
-    # Connect file monitor signals to controller slots
-    file_monitor.event_handler.pdf_detected.connect(controller.on_pdf_detected)
-    file_monitor.event_handler.summary_file_changed.connect(controller.on_summary_file_changed)
-    
-    # Start the monitor
-    file_monitor.start()
-    logger.info(f"Monitoring '{config.get('downloads_folder')}' and '{config.get('project_file_path')}'")
+    # Connect the log handler to the UI
+    log_handler.log_emitted.connect(main_window.update_status_display)
 
     # Show the main window and start the application
     main_window.show()
     logger.info("Application started successfully.")
     
     # Ensure the file monitor is stopped gracefully when the app closes
-    app.aboutToQuit.connect(file_monitor.stop)
+    app.aboutToQuit.connect(controller.cleanup)
     
     sys.exit(app.exec_())
 
