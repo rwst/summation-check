@@ -11,7 +11,8 @@ from PyQt5.QtWidgets import QFileDialog
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 from config import config, save_config
 from file_monitor import FileMonitor
-from match_metadata import match_pdf_to_metadata, extract_metadata_from_project_file
+from match_metadata import match_pdf_to_metadata
+from parse_project import extract_metadata_from_project_file
 
 class Controller(QObject):
     """
