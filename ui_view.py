@@ -152,6 +152,8 @@ class MainAppWindow(QMainWindow):
         """Updates the status bar and the main status log display."""
         self.status_bar.showMessage(message)
         self.status_display.append(message)
+        # Automatically scroll to the bottom
+        self.status_display.verticalScrollBar().setValue(self.status_display.verticalScrollBar().maximum())
 
     def prompt_for_pmid(self):
         """
