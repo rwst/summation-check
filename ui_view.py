@@ -9,10 +9,37 @@ built with PyQt5.
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QTextEdit, QStatusBar, QSplitter, QFrame
+    QPushButton, QLabel, QTextEdit, QStatusBar, QSplitter, QFrame,
+    QSizePolicy
 )
 from PyQt5.QtCore import Qt
 from config import config
+
+class WordWrapButton(QPushButton):
+    def __init__(self, text="", parent=None):
+        super().__init__("", parent)
+        self.label = QLabel(text, self)
+        self.label.setWordWrap(True)
+        self.label.setAlignment(Qt.AlignCenter)
+        
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.label)
+        
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.setMinimumHeight(40)
+
+    def setText(self, text):
+        self.label.setText(text)
+        self.setToolTip(text)
+
+    def text(self):
+        return self.label.text()
+
+    def sizeHint(self):
+        hint = self.label.sizeHint()
+        return hint
+
 
 class MainAppWindow(QMainWindow):
     """
@@ -51,17 +78,17 @@ class MainAppWindow(QMainWindow):
         # --- UI Elements (Left Panel) ---
         # Downloads Folder
         self.downloads_label = QLabel("downloads_folder")
-        self.downloads_button = QPushButton(config.get("downloads_folder", "Not Set"))
+        self.downloads_button = WordWrapButton(config.get("downloads_folder", "Not Set"))
         self.downloads_button.setToolTip(config.get("downloads_folder", "Not Set"))
 
         # Dedicated PDF Folder
         self.pdf_folder_label = QLabel("dedicated_pdf_folder")
-        self.pdf_folder_button = QPushButton(config.get("dedicated_pdf_folder", "Not Set"))
+        self.pdf_folder_button = WordWrapButton(config.get("dedicated_pdf_folder", "Not Set"))
         self.pdf_folder_button.setToolTip(config.get("dedicated_pdf_folder", "Not Set"))
 
         # Project File
         self.project_file_label = QLabel("project_file")
-        self.project_file_button = QPushButton(config.get("project_file_path", "Not Set"))
+        self.project_file_button = WordWrapButton(config.get("project_file_path", "Not Set"))
         self.project_file_button.setToolTip(config.get("project_file_path", "Not Set"))
 
         # --- UI Elements (Right Panel) ---
