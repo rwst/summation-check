@@ -10,10 +10,10 @@ import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QTextEdit, QStatusBar, QSplitter, QFrame,
-    QSizePolicy
+    QSizePolicy, QRadioButton, QButtonGroup
 )
 from PyQt5.QtCore import Qt
-from config import config
+from config import config, save_config
 
 class WordWrapButton(QPushButton):
     def __init__(self, text="", parent=None):
@@ -81,6 +81,21 @@ class MainAppWindow(QMainWindow):
         self.downloads_button = WordWrapButton(config.get("downloads_folder", "Not Set"))
         self.downloads_button.setToolTip(config.get("downloads_folder", "Not Set"))
 
+        # File Operation Radio Buttons
+        self.file_op_label = QLabel("File Operation:")
+        self.file_op_group = QButtonGroup(self)
+        self.copy_radio = QRadioButton("Copy")
+        self.move_radio = QRadioButton("Move")
+        self.file_op_group.addButton(self.copy_radio)
+        self.file_op_group.addButton(self.move_radio)
+
+        if config.get("file_operation") == "Copy":
+            self.copy_radio.setChecked(True)
+        else:
+            self.move_radio.setChecked(True)
+
+        self.file_op_group.buttonClicked.connect(self.on_file_op_changed)
+
         # Dedicated PDF Folder
         self.pdf_folder_label = QLabel("dedicated_pdf_folder")
         self.pdf_folder_button = WordWrapButton(config.get("dedicated_pdf_folder", "Not Set"))
@@ -107,6 +122,15 @@ class MainAppWindow(QMainWindow):
         self.left_layout.addWidget(self.downloads_label)
         self.left_layout.addWidget(self.downloads_button)
         self.left_layout.addSpacing(20)
+
+        # File Operation Layout
+        file_op_layout = QHBoxLayout()
+        file_op_layout.addWidget(self.copy_radio)
+        file_op_layout.addWidget(self.move_radio)
+        self.left_layout.addWidget(self.file_op_label)
+        self.left_layout.addLayout(file_op_layout)
+        self.left_layout.addSpacing(20)
+
         self.left_layout.addWidget(self.pdf_folder_label)
         self.left_layout.addWidget(self.pdf_folder_button)
         self.left_layout.addSpacing(20)
@@ -118,6 +142,11 @@ class MainAppWindow(QMainWindow):
         self.right_layout.addWidget(self.status_display)
         self.right_layout.addWidget(self.start_qc_button)
 
+    def on_file_op_changed(self, button):
+        """Handles the change in file operation radio buttons."""
+        config["file_operation"] = button.text()
+        save_config(config)
+        self.update_status_display(f"File operation set to {button.text()}")
 
     def update_status_display(self, message):
         """Updates the status bar and the main status log display."""

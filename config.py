@@ -17,6 +17,7 @@ DEFAULT_CONFIG = {
     "downloads_folder": os.path.join(os.path.expanduser("~"), "Downloads"),
     "project_file_path": os.path.join(os.getcwd(), "project.rtpj"),
     "dedicated_pdf_folder": os.path.join(os.getcwd(), "PDFs"),
+    "file_operation": "Move",  # "Move" or "Copy"
     "some_other_setting": "default_value"
 }
 

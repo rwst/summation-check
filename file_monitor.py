@@ -44,17 +44,25 @@ class FileChangeHandler(FileSystemEventHandler, QObject):
             try:
                 # Wait a moment for the file to be fully written
                 time.sleep(1)
-                # Move the file
+                
                 file_name = os.path.basename(event.src_path)
                 destination_path = os.path.join(self.pdf_folder, file_name)
-                shutil.move(event.src_path, destination_path)
-                logger.info(f"Moved PDF to: {destination_path}")
+                
+                # Check the file operation from config
+                file_operation = config.get("file_operation", "Move") # Default to Move
+                
+                if file_operation == "Copy":
+                    shutil.copy2(event.src_path, destination_path)
+                    logger.info(f"Copied PDF to: {destination_path}")
+                else: # Default to "Move"
+                    shutil.move(event.src_path, destination_path)
+                    logger.info(f"Moved PDF to: {destination_path}")
                 
                 # Mark as processed
                 self.processed_files[event.src_path] = time.time()
                 self.pdf_detected.emit(destination_path)
             except (shutil.Error, IOError) as e:
-                logger.error(f"Error moving file {event.src_path}: {e}")
+                logger.error(f"Error processing file {event.src_path}: {e}")
 
 
     def on_modified(self, event):
