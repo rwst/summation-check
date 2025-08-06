@@ -1,6 +1,7 @@
 concept1.txt
 concept2.txt
 summary.txt
+config.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
