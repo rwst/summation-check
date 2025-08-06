@@ -83,16 +83,17 @@ class FileMonitor:
         # Ensure the dedicated PDF folder exists
         if not os.path.exists(self.dedicated_pdf_folder):
             os.makedirs(self.dedicated_pdf_folder)
-        # Create the event handler and observer
+        # Create the event handler
         self.event_handler = FileChangeHandler()
-        self.observer = Observer()
+        self.observer = None
 
     def start(self):
         """
         Starts watching the specified directories.
         """
+        self.observer = Observer()
         if os.path.isdir(self.downloads_path):
-            self.observer.schedule(self.event_handler, self.downloads_path, recursive=True) # Recursive might be useful
+            self.observer.schedule(self.event_handler, self.downloads_path, recursive=True)
         
         project_dir = os.path.dirname(self.project_path)
         if os.path.isdir(project_dir):
@@ -109,7 +110,21 @@ class FileMonitor:
         """
         Stops watching the directories.
         """
-        if self.observer.is_alive():
+        if self.observer and self.observer.is_alive():
             self.observer.stop()
             self.observer.join()
             logger.info("Stopped monitoring.")
+
+
+    def update_paths(self):
+        """
+        Updates the paths to monitor from the config.
+        """
+        self.downloads_path = config.get("downloads_folder")
+        self.project_path = config.get("project_file_path")
+        self.event_handler.summary_file_path = os.path.abspath(self.project_path)
+        self.event_handler.pdf_folder = config.get("dedicated_pdf_folder")
+        logger.info(f"Updated monitored paths: {self.downloads_path} and {self.project_path}")
+        # The observer needs to be restarted to monitor new paths
+        self.stop()
+        self.start()

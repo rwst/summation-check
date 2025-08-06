@@ -63,8 +63,7 @@ class Controller(QObject):
             self.view.downloads_button.setText(folder)
             self.status_updated.emit(f"Downloads folder set to: {folder}")
             # Restart the monitor to watch the new folder
-            self.file_monitor.stop()
-            self.file_monitor.start()
+            self.file_monitor.update_paths()
 
     def select_pdf_folder(self):
         """Opens a dialog to select the dedicated PDF folder."""
@@ -89,8 +88,7 @@ class Controller(QObject):
             self.view.project_file_button.setText(file)
             self.status_updated.emit(f"Project file set to: {file}")
             # Restart the monitor to watch the new folder
-            self.file_monitor.stop()
-            self.file_monitor.start()
+            self.file_monitor.update_paths()
 
     def load_initial_metadata(self):
         """Loads metadata from the project file on startup."""
