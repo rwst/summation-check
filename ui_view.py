@@ -8,9 +8,11 @@ built with PyQt5.
 
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout,
-    QPushButton, QLabel, QTextEdit, QStatusBar
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QPushButton, QLabel, QTextEdit, QStatusBar, QSplitter, QFrame
 )
+from PyQt5.QtCore import Qt
+from config import config
 
 class MainAppWindow(QMainWindow):
     """
@@ -19,32 +21,76 @@ class MainAppWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Summation Check Tool")
-        self.setGeometry(100, 100, 800, 600)  # x, y, width, height
+        self.setGeometry(100, 100, 1000, 700)  # Increased size for split view
 
-        # --- Central Widget and Layout ---
+        # --- Main Layout ---
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
-        self.layout = QVBoxLayout(self.central_widget)
+        self.main_layout = QHBoxLayout(self.central_widget)
 
-        # --- UI Elements ---
-        # Status display area
+        # --- Splitter ---
+        self.splitter = QSplitter(Qt.Horizontal)
+        self.main_layout.addWidget(self.splitter)
+
+        # --- Left Panel ---
+        self.left_panel = QWidget()
+        self.left_layout = QVBoxLayout(self.left_panel)
+        self.left_layout.setAlignment(Qt.AlignTop)
+        self.left_panel.setMinimumWidth(200)
+        self.left_panel.setMaximumWidth(400)
+
+        # --- Right Panel ---
+        self.right_panel = QWidget()
+        self.right_layout = QVBoxLayout(self.right_panel)
+
+        # Add panels to splitter
+        self.splitter.addWidget(self.left_panel)
+        self.splitter.addWidget(self.right_panel)
+        self.splitter.setSizes([300, 700]) # Initial size ratio
+
+        # --- UI Elements (Left Panel) ---
+        # Downloads Folder
+        self.downloads_label = QLabel("downloads_folder")
+        self.downloads_button = QPushButton(config.get("downloads_folder", "Not Set"))
+        self.downloads_button.setToolTip(config.get("downloads_folder", "Not Set"))
+
+        # Dedicated PDF Folder
+        self.pdf_folder_label = QLabel("dedicated_pdf_folder")
+        self.pdf_folder_button = QPushButton(config.get("dedicated_pdf_folder", "Not Set"))
+        self.pdf_folder_button.setToolTip(config.get("dedicated_pdf_folder", "Not Set"))
+
+        # Project File
+        self.project_file_label = QLabel("project_file")
+        self.project_file_button = QPushButton(config.get("project_file_path", "Not Set"))
+        self.project_file_button.setToolTip(config.get("project_file_path", "Not Set"))
+
+        # --- UI Elements (Right Panel) ---
         self.status_label = QLabel("Status Log:")
         self.status_display = QTextEdit()
         self.status_display.setReadOnly(True)
-
-        # "Start QC" button
         self.start_qc_button = QPushButton("Start QC")
-        self.start_qc_button.setFixedHeight(40) # Make the button a bit bigger
+        self.start_qc_button.setFixedHeight(40)
 
-        # Status Bar
+        # --- Status Bar ---
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("Ready")
 
-        # --- Layout Management ---
-        self.layout.addWidget(self.status_label)
-        self.layout.addWidget(self.status_display)
-        self.layout.addWidget(self.start_qc_button)
+        # --- Layout Management (Left) ---
+        self.left_layout.addWidget(self.downloads_label)
+        self.left_layout.addWidget(self.downloads_button)
+        self.left_layout.addSpacing(20)
+        self.left_layout.addWidget(self.pdf_folder_label)
+        self.left_layout.addWidget(self.pdf_folder_button)
+        self.left_layout.addSpacing(20)
+        self.left_layout.addWidget(self.project_file_label)
+        self.left_layout.addWidget(self.project_file_button)
+
+        # --- Layout Management (Right) ---
+        self.right_layout.addWidget(self.status_label)
+        self.right_layout.addWidget(self.status_display)
+        self.right_layout.addWidget(self.start_qc_button)
+
 
     def update_status_display(self, message):
         """Updates the status bar and the main status log display."""

@@ -15,7 +15,8 @@ CONFIG_FILE = "config.json"
 # Define the default structure of the configuration
 DEFAULT_CONFIG = {
     "downloads_folder": os.path.join(os.path.expanduser("~"), "Downloads"),
-    "summary_file_path": os.path.join(os.getcwd(), "summary.txt"),
+    "project_file_path": os.path.join(os.getcwd(), "pathway.rtpj"),
+    "dedicated_pdf_folder": os.path.join(os.getcwd(), "PDFs"),
     "some_other_setting": "default_value"
 }
 
@@ -31,7 +32,11 @@ def load_config():
 
     try:
         with open(CONFIG_FILE, 'r') as f:
-            return json.load(f)
+            config_data = json.load(f)
+            # Ensure all keys from default config are present
+            for key, value in DEFAULT_CONFIG.items():
+                config_data.setdefault(key, value)
+            return config_data
     except (json.JSONDecodeError, IOError) as e:
         print(f"Error loading configuration: {e}. Loading default config.")
         # In a real app, you might want to notify the user more formally
@@ -42,11 +47,18 @@ def save_config(config_data):
     Saves the given configuration data to the config file.
     """
     try:
+        # Create the dedicated PDF folder if it doesn't exist
+        pdf_folder = config_data.get("dedicated_pdf_folder")
+        if pdf_folder and not os.path.exists(pdf_folder):
+            os.makedirs(pdf_folder)
+
         with open(CONFIG_FILE, 'w') as f:
             json.dump(config_data, f, indent=4)
-    except IOError as e:
+    except (IOError, OSError) as e:
         # In a real app, you'd want to log this error properly
-        print(f"Error saving configuration: {e}")
+        print(f"Error saving configuration or creating directory: {e}")
 
 # Load the configuration at startup so it's available for other modules
 config = load_config()
+# Save the config on startup to ensure the PDF folder is created
+save_config(config)
