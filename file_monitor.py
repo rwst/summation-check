@@ -22,15 +22,21 @@ class FileChangeHandler(FileSystemEventHandler, QObject):
     pdf_detected = pyqtSignal(str)
     summary_file_changed = pyqtSignal(str)
 
-    def __init__(self, summary_file_path, dedicated_pdf_folder):
+    def __init__(self):
         QObject.__init__(self)
         FileSystemEventHandler.__init__(self)
-        self.summary_file_path = os.path.abspath(summary_file_path)
-        self.pdf_folder = dedicated_pdf_folder
+        self.summary_file_path = os.path.abspath(config.get("project_file_path"))
+        self.pdf_folder = config.get("dedicated_pdf_folder")
+        self.processed_files = {}
 
     def on_created(self, event):
         """Called when a file or directory is created."""
         if not event.is_directory and event.src_path.lower().endswith('.pdf'):
+            # Check if this file has been processed recently
+            if event.src_path in self.processed_files and \
+               time.time() - self.processed_files[event.src_path] < 5: # 5-second cooldown
+                return
+            
             print(f"New PDF detected: {event.src_path}")
             try:
                 # Wait a moment for the file to be fully written
@@ -40,6 +46,9 @@ class FileChangeHandler(FileSystemEventHandler, QObject):
                 destination_path = os.path.join(self.pdf_folder, file_name)
                 shutil.move(event.src_path, destination_path)
                 print(f"Moved PDF to: {destination_path}")
+                
+                # Mark as processed
+                self.processed_files[event.src_path] = time.time()
                 self.pdf_detected.emit(destination_path)
             except (shutil.Error, IOError) as e:
                 print(f"Error moving file {event.src_path}: {e}")
@@ -56,15 +65,15 @@ class FileMonitor:
     """
     Manages the file system watching.
     """
-    def __init__(self, downloads_path, dedicated_pdf_folder, project_path):
-        self.downloads_path = downloads_path
-        self.project_path = project_path
-        self.dedicated_pdf_folder = dedicated_pdf_folder
+    def __init__(self):
+        self.downloads_path = config.get("downloads_folder")
+        self.project_path = config.get("project_file_path")
+        self.dedicated_pdf_folder = config.get("dedicated_pdf_folder")
         # Ensure the dedicated PDF folder exists
         if not os.path.exists(self.dedicated_pdf_folder):
             os.makedirs(self.dedicated_pdf_folder)
         # Create the event handler and observer
-        self.event_handler = FileChangeHandler(self.project_path, self.dedicated_pdf_folder)
+        self.event_handler = FileChangeHandler()
         self.observer = Observer()
 
     def start(self):
@@ -93,28 +102,3 @@ class FileMonitor:
             self.observer.stop()
             self.observer.join()
             print("Stopped monitoring.")
-
-if __name__ == '__main__':
-    # Example usage:
-    # Create dummy files/dirs for testing
-    if not os.path.exists("test_downloads"):
-        os.makedirs("test_downloads")
-    if not os.path.exists("test_summary"):
-        os.makedirs("test_summary")
-    if not os.path.exists("test_pdfs"):
-        os.makedirs("test_pdfs")
-    with open("test_summary/summary.txt", "w") as f:
-        f.write("initial content")
-
-    downloads = "test_downloads"
-    summary = "test_summary/summary.txt"
-    
-    dedicated_pdfs = "test_pdfs"
-    monitor = FileMonitor(downloads, summary, dedicated_pdfs)
-    monitor.start()
-    try:
-        print("Monitoring... Create a .pdf file in 'test_downloads' or modify 'test_summary/summary.txt'.")
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        monitor.stop()

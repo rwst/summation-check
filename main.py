@@ -30,14 +30,10 @@ def main():
     controller = Controller(main_window)
 
     # Set up the file monitor
-    downloads_folder = config.get("downloads_folder")
-    dedicated_pdf_folder = config.get("dedicated_pdf_folder")
-    project_file = config.get("project_file_path")
-    
-    if not downloads_folder or not project_file or not dedicated_pdf_folder:
+    if not config.get("downloads_folder") or not config.get("project_file_path") or not config.get("dedicated_pdf_folder"):
         logger.warning("Downloads/PDF folders or project file path not configured.")
     
-    file_monitor = FileMonitor(downloads_folder, dedicated_pdf_folder, project_file)
+    file_monitor = FileMonitor()
     
     # Connect file monitor signals to controller slots
     file_monitor.event_handler.pdf_detected.connect(controller.on_pdf_detected)
@@ -45,7 +41,7 @@ def main():
     
     # Start the monitor
     file_monitor.start()
-    logger.info(f"Monitoring '{downloads_folder}' and '{project_file}'")
+    logger.info(f"Monitoring '{config.get('downloads_folder')}' and '{config.get('project_file_path')}'")
 
     # Show the main window and start the application
     main_window.show()
