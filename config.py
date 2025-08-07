@@ -48,11 +48,6 @@ def save_config(config_data):
     Saves the given configuration data to the config file.
     """
     try:
-        # Create the dedicated PDF folder if it doesn't exist
-        pdf_folder = config_data.get("dedicated_pdf_folder")
-        if pdf_folder and not os.path.exists(pdf_folder):
-            os.makedirs(pdf_folder)
-
         with open(CONFIG_FILE, 'w') as f:
             json.dump(config_data, f, indent=4)
     except (IOError, OSError) as e:

@@ -10,7 +10,7 @@ import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QTextEdit, QStatusBar, QSplitter, QFrame,
-    QSizePolicy, QRadioButton, QButtonGroup
+    QSizePolicy, QRadioButton, QButtonGroup, QMessageBox
 )
 from PyQt5.QtCore import Qt
 from config import config, save_config
@@ -141,6 +141,10 @@ class MainAppWindow(QMainWindow):
         self.right_layout.addWidget(self.status_label)
         self.right_layout.addWidget(self.status_display)
         self.right_layout.addWidget(self.start_qc_button)
+
+    def show_warning_message(self, title, message):
+        """Displays a warning message box."""
+        QMessageBox.warning(self, title, message)
 
     def on_file_op_changed(self, button):
         """Handles the change in file operation radio buttons."""

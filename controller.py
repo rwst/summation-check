@@ -33,7 +33,7 @@ class Controller(QObject):
         super().__init__()
         self.view = view
         self.log_handler = log_handler
-        self.file_monitor = FileMonitor()
+        self.file_monitor = FileMonitor(self)
         self.metadata_set = []
         self.connect_signals()
         self.status_updated.emit("Controller initialized.")
@@ -54,6 +54,13 @@ class Controller(QObject):
         # Connect file monitor signals
         self.file_monitor.event_handler.pdf_detected.connect(self.on_pdf_detected)
         self.file_monitor.event_handler.project_file_changed.connect(self.on_project_file_changed)
+
+    def show_directory_warning(self, path):
+        """Shows a warning message about an inaccessible directory."""
+        self.view.show_warning_message(
+            "Directory Inaccessible",
+            f"The following directory is not accessible, please check the path and permissions:\n\n{path}"
+        )
 
     def select_downloads_folder(self):
         """Opens a dialog to select the downloads folder."""
@@ -172,8 +179,13 @@ class Controller(QObject):
         self.process_existing_pdfs()
 
     def cleanup(self):
-        """Stops the file monitor and removes the log handler."""
+        """Stops the file monitor and properly shuts down the log handler."""
         self.file_monitor.stop()
+        
+        # Remove the handler from the logging system
         logging.getLogger().removeHandler(self.log_handler)
+        
+        # Explicitly close the handler to prevent atexit issues
+        self.log_handler.close()
 
     # Add other methods to handle application logic here

@@ -17,6 +17,24 @@ from config import config
 
 logger = logging.getLogger(__name__)
 
+def check_directory(path):
+    """
+    Checks if a directory exists and is accessible (readable and writable).
+    
+    Args:
+        path (str): The path to the directory.
+        
+    Returns:
+        bool: True if the directory exists and is accessible, False otherwise.
+    """
+    if not os.path.isdir(path):
+        logger.warning(f"Directory does not exist: {path}")
+        return False
+    if not os.access(path, os.R_OK | os.W_OK):
+        logger.warning(f"Directory is not readable/writable: {path}")
+        return False
+    return True
+
 class FileChangeHandler(FileSystemEventHandler, QObject):
     """
     Handles file system events.
@@ -76,23 +94,32 @@ class FileMonitor:
     """
     Manages the file system watching.
     """
-    def __init__(self):
+    def __init__(self, controller):
+        self.controller = controller
         self.downloads_path = config.get("downloads_folder")
         self.project_path = config.get("project_file_path")
         self.dedicated_pdf_folder = config.get("dedicated_pdf_folder")
-        # Ensure the dedicated PDF folder exists
-        if not os.path.exists(self.dedicated_pdf_folder):
-            os.makedirs(self.dedicated_pdf_folder)
+        
+        # Check accessibility of directories
+        self.downloads_folder_accessible = check_directory(self.downloads_path)
+        if not self.downloads_folder_accessible:
+            self.controller.show_directory_warning(self.downloads_path)
+
+        self.pdf_folder_accessible = check_directory(self.dedicated_pdf_folder)
+        if not self.pdf_folder_accessible:
+            self.controller.show_directory_warning(self.dedicated_pdf_folder)
+
         # Create the event handler
         self.event_handler = FileChangeHandler()
         self.observer = None
 
     def start(self):
         """
-        Starts watching the specified directories.
+        Starts watching the specified directories if they are accessible.
         """
         self.observer = Observer()
-        if os.path.isdir(self.downloads_path):
+        
+        if self.downloads_folder_accessible:
             self.observer.schedule(self.event_handler, self.downloads_path, recursive=True)
         
         project_dir = os.path.dirname(self.project_path)
@@ -101,9 +128,9 @@ class FileMonitor:
 
         if self.observer.emitters:
             self.observer.start()
-            logger.info(f"Started monitoring {self.downloads_path} and {os.path.dirname(self.project_path)}")
+            logger.info(f"Started monitoring accessible paths.")
         else:
-            logger.warning("Monitoring could not be started. Check config paths.")
+            logger.warning("Monitoring could not be started. Check config paths and permissions.")
 
 
     def stop(self):
