@@ -92,6 +92,7 @@ class Controller(QObject):
             self.status_updated.emit(f"Project file set to: {file}")
             # Restart the monitor to watch the new folder
             self.file_monitor.update_paths()
+            self.on_project_file_changed(file)
 
     def load_initial_metadata(self):
         """Loads metadata from the project file on startup."""
