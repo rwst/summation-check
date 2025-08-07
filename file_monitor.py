@@ -43,9 +43,10 @@ class FileChangeHandler(FileSystemEventHandler, QObject):
     pdf_detected = pyqtSignal(str)
     project_file_changed = pyqtSignal(str)
 
-    def __init__(self):
+    def __init__(self, controller):
         QObject.__init__(self)
         FileSystemEventHandler.__init__(self)
+        self.controller = controller
         self.project_file_path = os.path.abspath(config.get("project_file_path"))
         self.pdf_folder = config.get("dedicated_pdf_folder")
         self.processed_files = {}
@@ -80,7 +81,11 @@ class FileChangeHandler(FileSystemEventHandler, QObject):
                 self.processed_files[event.src_path] = time.time()
                 self.pdf_detected.emit(destination_path)
             except (shutil.Error, IOError) as e:
-                logger.error(f"Error processing file {event.src_path}: {e}")
+                error_message = f"Error processing file {event.src_path}: {e}"
+                logger.error(error_message)
+                self.controller.show_directory_warning(
+                    f"A file operation failed. Please check permissions for both source and destination folders.\n\nDetails: {error_message}"
+                )
 
 
     def on_modified(self, event):
@@ -110,7 +115,7 @@ class FileMonitor:
             self.controller.show_directory_warning(self.dedicated_pdf_folder)
 
         # Create the event handler
-        self.event_handler = FileChangeHandler()
+        self.event_handler = FileChangeHandler(self.controller)
         self.observer = None
 
     def start(self):

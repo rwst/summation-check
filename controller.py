@@ -55,12 +55,9 @@ class Controller(QObject):
         self.file_monitor.event_handler.pdf_detected.connect(self.on_pdf_detected)
         self.file_monitor.event_handler.project_file_changed.connect(self.on_project_file_changed)
 
-    def show_directory_warning(self, path):
-        """Shows a warning message about an inaccessible directory."""
-        self.view.show_warning_message(
-            "Directory Inaccessible",
-            f"The following directory is not accessible, please check the path and permissions:\n\n{path}"
-        )
+    def show_directory_warning(self, message, title="Warning"):
+        """Shows a warning message box."""
+        self.view.show_warning_message(title, message)
 
     def select_downloads_folder(self):
         """Opens a dialog to select the downloads folder."""
@@ -137,9 +134,14 @@ class Controller(QObject):
             self.metadata_set = extract_metadata_from_project_file(content)
             self.status_updated.emit(f"Successfully loaded {len(self.metadata_set)} metadata entries.")
             self.process_existing_pdfs()
-        except Exception as e:
-            self.error_occurred.emit(f"Error reading project file: {e}")
-            logging.error(f"Error reading project file: {e}")
+        except (IOError, OSError, Exception) as e:
+            error_message = f"Error reading project file: {e}"
+            self.error_occurred.emit(error_message)
+            logging.error(error_message)
+            self.show_directory_warning(
+                f"Could not read the project file. Please check the file path and permissions.\n\nDetails: {e}",
+                title="Project File Error"
+            )
 
     def process_existing_pdfs(self):
         """
@@ -151,7 +153,9 @@ class Controller(QObject):
             return
 
         if not os.path.exists(pdf_folder):
-            self.status_updated.emit(f"PDF folder not found: {pdf_folder}")
+            message = f"PDF folder not found: {pdf_folder}"
+            self.status_updated.emit(message)
+            self.show_directory_warning(message, title="PDF Folder Not Found")
             return
 
         self.status_updated.emit(f"Processing PDFs in {pdf_folder}...")
