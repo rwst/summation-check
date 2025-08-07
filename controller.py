@@ -74,6 +74,8 @@ class Controller(QObject):
             save_config(config)
             self.view.pdf_folder_button.setText(folder)
             self.status_updated.emit(f"PDF folder set to: {folder}")
+            self.file_monitor.update_paths()
+            self.process_existing_pdfs()
 
     def select_project_file(self):
         """Opens a dialog to select the project file."""
