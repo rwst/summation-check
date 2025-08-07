@@ -1,8 +1,8 @@
 ## General and Style Instructions:
 
 - Prefer functional programming paradigms where appropriate.
-- Prefer crisp, concise and idiomatic Python
-- We adhere to the PEP 8 style guide. Before committing your changes, run the linter to check for any style issues with the command flake8
+- Prefer crisp, concise and idiomatic Python.
+- Try to adhere to the already existing style.
 
 ## About the Project
 
