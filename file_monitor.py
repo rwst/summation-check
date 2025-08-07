@@ -2,7 +2,7 @@
 """
 File system monitor for the Summation Check application.
 
-This module watches the specified downloads directory and summary file
+This module watches the specified downloads directory and project file
 location for new files or modifications using the 'watchdog' library.
 """
 
@@ -23,12 +23,12 @@ class FileChangeHandler(FileSystemEventHandler, QObject):
     """
     # Signals to notify the controller of file changes
     pdf_detected = pyqtSignal(str)
-    summary_file_changed = pyqtSignal(str)
+    project_file_changed = pyqtSignal(str)
 
     def __init__(self):
         QObject.__init__(self)
         FileSystemEventHandler.__init__(self)
-        self.summary_file_path = os.path.abspath(config.get("project_file_path"))
+        self.project_file_path = os.path.abspath(config.get("project_file_path"))
         self.pdf_folder = config.get("dedicated_pdf_folder")
         self.processed_files = {}
 
@@ -67,9 +67,9 @@ class FileChangeHandler(FileSystemEventHandler, QObject):
 
     def on_modified(self, event):
         """Called when a file or directory is modified."""
-        if isinstance(event, FileModifiedEvent) and os.path.abspath(event.src_path) == self.summary_file_path:
-             logger.info(f"Summary file changed: {event.src_path}")
-             self.summary_file_changed.emit(event.src_path)
+        if isinstance(event, FileModifiedEvent) and os.path.abspath(event.src_path) == self.project_file_path:
+             logger.info(f"Project file changed: {event.src_path}")
+             self.project_file_changed.emit(event.src_path)
 
 
 class FileMonitor:
@@ -122,7 +122,7 @@ class FileMonitor:
         """
         self.downloads_path = config.get("downloads_folder")
         self.project_path = config.get("project_file_path")
-        self.event_handler.summary_file_path = os.path.abspath(self.project_path)
+        self.event_handler.project_file_path = os.path.abspath(self.project_path)
         self.event_handler.pdf_folder = config.get("dedicated_pdf_folder")
         logger.info(f"Updated monitored paths: {self.downloads_path} and {self.project_path}")
         # The observer needs to be restarted to monitor new paths

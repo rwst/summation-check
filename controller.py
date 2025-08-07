@@ -53,7 +53,7 @@ class Controller(QObject):
 
         # Connect file monitor signals
         self.file_monitor.event_handler.pdf_detected.connect(self.on_pdf_detected)
-        self.file_monitor.event_handler.summary_file_changed.connect(self.on_summary_file_changed)
+        self.file_monitor.event_handler.project_file_changed.connect(self.on_project_file_changed)
 
     def select_downloads_folder(self):
         """Opens a dialog to select the downloads folder."""
@@ -95,7 +95,7 @@ class Controller(QObject):
         """Loads metadata from the project file on startup."""
         project_file = config.get("project_file_path")
         if project_file and os.path.exists(project_file):
-            self.on_summary_file_changed(project_file)
+            self.on_project_file_changed(project_file)
 
     @pyqtSlot(str)
     def on_pdf_detected(self, file_path):
@@ -116,9 +116,9 @@ class Controller(QObject):
             self.status_updated.emit(f"No match for PDF: '{os.path.basename(file_path)}'")
 
     @pyqtSlot(str)
-    def on_summary_file_changed(self, file_path):
+    def on_project_file_changed(self, file_path):
         """
-        Handles the event when the summary file is changed.
+        Handles the event when the project file is changed.
         """
         self.status_updated.emit(f"Project file updated: {file_path}. Loading new metadata.")
         try:
