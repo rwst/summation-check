@@ -7,6 +7,7 @@ built with PyQt5.
 """
 
 import sys
+import os
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QTextEdit, QStatusBar, QSplitter, QFrame,
@@ -191,6 +192,9 @@ class MainAppWindow(QMainWindow):
 
         if self.qc_window is None:
             self.qc_window = QCWindow()
+
+        project_file_name = os.path.basename(project_file_path)
+        self.qc_window.setWindowTitle(f"QC: {project_file_name}")
 
         self.qc_window.list1.clear()
         
