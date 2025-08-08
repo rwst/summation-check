@@ -44,7 +44,6 @@ class Controller(QObject):
         """
         Connects signals from the UI to controller slots (methods).
         """
-        self.view.start_qc_button.clicked.connect(self.start_qc_process)
         self.view.downloads_button.clicked.connect(self.select_downloads_folder)
         self.view.pdf_folder_button.clicked.connect(self.select_pdf_folder)
         self.view.project_file_button.clicked.connect(self.select_project_file)

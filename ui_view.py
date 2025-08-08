@@ -10,7 +10,7 @@ import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QTextEdit, QStatusBar, QSplitter, QFrame,
-    QSizePolicy, QRadioButton, QButtonGroup, QMessageBox
+    QSizePolicy, QRadioButton, QButtonGroup, QMessageBox, QListWidget
 )
 from PyQt5.QtCore import Qt
 from config import config, save_config
@@ -41,6 +41,24 @@ class WordWrapButton(QPushButton):
         return hint
 
 
+class QCWindow(QWidget):
+    """
+    A window for quality control, showing two lists side-by-side.
+    """
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("QC View")
+        self.setGeometry(150, 150, 800, 600)
+
+        layout = QHBoxLayout(self)
+        
+        self.list1 = QListWidget()
+        self.list2 = QListWidget()
+
+        layout.addWidget(self.list1)
+        layout.addWidget(self.list2)
+
+
 class MainAppWindow(QMainWindow):
     """
     The main application window.
@@ -49,6 +67,8 @@ class MainAppWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Summation Check Tool")
         self.setGeometry(100, 100, 1000, 700)  # Increased size for split view
+
+        self.qc_window = None # To hold a reference to the QC window
 
         # --- Main Layout ---
         self.central_widget = QWidget()
@@ -110,8 +130,9 @@ class MainAppWindow(QMainWindow):
         self.status_label = QLabel("Status Log:")
         self.status_display = QTextEdit()
         self.status_display.setReadOnly(True)
-        self.start_qc_button = QPushButton("Start QC")
+        self.start_qc_button = QPushButton("Open QC window")
         self.start_qc_button.setFixedHeight(40)
+        self.start_qc_button.clicked.connect(self.open_qc_window)
 
         # --- Status Bar ---
         self.status_bar = QStatusBar()
@@ -141,6 +162,19 @@ class MainAppWindow(QMainWindow):
         self.right_layout.addWidget(self.status_label)
         self.right_layout.addWidget(self.status_display)
         self.right_layout.addWidget(self.start_qc_button)
+
+    def open_qc_window(self):
+        """Opens the QC window."""
+        if self.qc_window is None:
+            self.qc_window = QCWindow()
+        self.qc_window.show()
+        self.update_status_display("QC Window opened.")
+
+    def closeEvent(self, event):
+        """Ensures the QC window is closed when the main window is closed."""
+        if self.qc_window:
+            self.qc_window.close()
+        super().closeEvent(event)
 
     def show_warning_message(self, title, message):
         """Displays a warning message box."""
