@@ -48,3 +48,94 @@ def extract_metadata_from_project_file(xml_string):
         return []
 
     return references
+
+
+def extract_project_data(xml_string):
+    """
+    Parses an XML string from a Reactome project file to extract data for specific object types.
+    The function extracts information for Pathway, BlackBoxEvent, FailedReaction,
+    Polymerisation, and Reaction objects.
+
+    Args:
+        xml_string: A string containing the XML data of the project file.
+
+    Returns:
+        A list of unique dictionaries, where each dictionary contains data for an object.
+        The dictionary keys are 'DB_ID', 'name', 'summation_text', and 'literature_references'.
+        'literature_references' is a list of lists, with each inner list containing
+        [pubMedIdentifier, title].
+    """
+    try:
+        root = ET.fromstring(xml_string)
+    except ET.ParseError as e:
+        print(f"Error parsing XML: {e}", file=sys.stderr)
+        return []
+
+    summations = {}
+    for summation_instance in root.findall('.//Summation/instance'):
+        db_id = summation_instance.get('DB_ID')
+        if not db_id:
+            continue
+        text_attr = summation_instance.find("attribute[@name='text']")
+        if text_attr is not None and text_attr.get('value') is not None:
+            summations[db_id] = text_attr.get('value')
+
+    literature_refs = {}
+    for lit_ref_instance in root.findall('.//LiteratureReference/instance'):
+        db_id = lit_ref_instance.get('DB_ID')
+        if not db_id:
+            continue
+
+        title_attr = lit_ref_instance.find("attribute[@name='title']")
+        pubmed_attr = lit_ref_instance.find("attribute[@name='pubMedIdentifier']")
+
+        title = title_attr.get('value') if title_attr is not None else None
+        pubmed_id = pubmed_attr.get('value') if pubmed_attr is not None else None
+
+        if title and pubmed_id:
+            literature_refs[db_id] = [pubmed_id, title]
+
+    results = []
+    object_types = ['Pathway', 'BlackBoxEvent', 'FailedReaction', 'Polymerisation', 'Reaction']
+
+    for obj_type in object_types:
+        for instance in root.findall(f'.//{obj_type}/instance'):
+            if instance.get('isShell') == 'true':
+                continue
+
+            db_id = instance.get('DB_ID')
+            name_attr = instance.find("attribute[@name='name']")
+
+            if not db_id or name_attr is None:
+                continue
+
+            name = name_attr.get('value')
+
+            summation_text = None
+            summation_attr = instance.find("attribute[@name='summation']")
+            if summation_attr is not None:
+                summation_id = summation_attr.get('referTo')
+                if summation_id in summations:
+                    summation_text = summations[summation_id]
+
+            lit_ref_list = []
+            for lit_ref_attr in instance.findall("attribute[@name='literatureReference']"):
+                lit_ref_id = lit_ref_attr.get('referTo')
+                if lit_ref_id in literature_refs:
+                    lit_ref_list.append(literature_refs[lit_ref_id])
+
+            try:
+                db_id_int = int(db_id)
+            except (ValueError, TypeError):
+                continue
+
+            results.append({
+                'DB_ID': db_id_int,
+                'name': name,
+                'summation_text': summation_text,
+                'literature_references': lit_ref_list
+            })
+
+    # Return a list of unique dictionaries, using DB_ID for uniqueness.
+    unique_results = {d['DB_ID']: d for d in results}.values()
+    return list(unique_results)

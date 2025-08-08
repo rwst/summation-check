@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from config import config, save_config
+from parse_project import extract_project_data
 
 class WordWrapButton(QPushButton):
     def __init__(self, text="", parent=None):
@@ -164,11 +165,43 @@ class MainAppWindow(QMainWindow):
         self.right_layout.addWidget(self.start_qc_button)
 
     def open_qc_window(self):
-        """Opens the QC window."""
+        """
+        Opens the QC window and populates it with data from the project file.
+        """
+        project_file_path = config.get("project_file_path")
+        if not project_file_path or not project_file_path.strip():
+            self.show_warning_message("Project File Error", "Project file path is not set.")
+            return
+
+        try:
+            with open(project_file_path, 'r', encoding='utf-8') as f:
+                xml_content = f.read()
+        except FileNotFoundError:
+            self.show_warning_message("Project File Error", f"Project file not found at: {project_file_path}")
+            return
+        except Exception as e:
+            self.show_warning_message("File Read Error", f"Could not read project file: {e}")
+            return
+
+        project_data = extract_project_data(xml_content)
+
+        if not project_data:
+            self.show_warning_message("Data Extraction Error", "No data could be extracted from the project file.")
+            return
+
         if self.qc_window is None:
             self.qc_window = QCWindow()
+
+        self.qc_window.list1.clear()
+        
+        # Sort the data alphabetically by name (case-insensitive)
+        sorted_project_data = sorted(project_data, key=lambda x: x.get('name', 'Unnamed').lower())
+        
+        for item in sorted_project_data:
+            self.qc_window.list1.addItem(item.get('name', 'Unnamed'))
+
         self.qc_window.show()
-        self.update_status_display("QC Window opened.")
+        self.update_status_display(f"QC Window opened. Loaded {len(project_data)} items.")
 
     def closeEvent(self, event):
         """Ensures the QC window is closed when the main window is closed."""
