@@ -127,6 +127,10 @@ class Controller(QObject):
         Handles the event when the project file is changed.
         """
         self.status_updated.emit(f"Project file updated: {file_path}. Loading new metadata.")
+        if self.view.qc_window:
+            self.view.qc_window.close()
+            self.status_updated.emit("QC window closed due to project file change.")
+            
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
