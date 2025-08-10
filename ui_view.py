@@ -51,11 +51,13 @@ class QCWindow(QWidget):
         super().__init__()
         self.setWindowTitle("QC View")
         self.setGeometry(150, 150, 800, 600)
+        self.project_data = []
 
         layout = QHBoxLayout(self)
         
         self.list1 = QListWidget()
         self.list2 = QListWidget()
+        self.list1.itemClicked.connect(self.on_left_list_item_clicked)
 
         # Set the maximum height of the second list to approximately 15 items
         font_height = self.list2.fontMetrics().height()
@@ -72,6 +74,31 @@ class QCWindow(QWidget):
 
         layout.addWidget(self.list1)
         layout.addLayout(right_list_layout)
+
+    def update_data(self, project_data):
+        """
+        Populates the left list with project data and stores it.
+        """
+        self.project_data = project_data
+        self.list1.clear()
+        self.list2.clear()
+        
+        for item in self.project_data:
+            self.list1.addItem(item.get('name', 'Unnamed'))
+
+    def on_left_list_item_clicked(self, item):
+        """
+        Handles clicks on the left list to populate the right list.
+        """
+        clicked_item_name = item.text()
+        self.list2.clear()
+
+        for data_item in self.project_data:
+            if data_item.get('name') == clicked_item_name:
+                literature_references = data_item.get('literatureReference', [])
+                for ref in literature_references:
+                    self.list2.addItem(ref.get('title', 'No Title'))
+                break
 
 
 class MainAppWindow(QMainWindow):
@@ -209,13 +236,10 @@ class MainAppWindow(QMainWindow):
         project_file_name = os.path.basename(project_file_path)
         self.qc_window.setWindowTitle(f"QC: {project_file_name}")
 
-        self.qc_window.list1.clear()
-        
         # Sort the data alphabetically by name (case-insensitive)
         sorted_project_data = sorted(project_data, key=lambda x: x.get('name', 'Unnamed').lower())
         
-        for item in sorted_project_data:
-            self.qc_window.list1.addItem(item.get('name', 'Unnamed'))
+        self.qc_window.update_data(sorted_project_data)
 
         self.qc_window.show()
         self.update_status_display(f"QC Window opened. Loaded {len(project_data)} items.")
