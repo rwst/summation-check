@@ -11,7 +11,7 @@ import os
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QTextEdit, QStatusBar, QSplitter,
-    QSizePolicy, QRadioButton, QButtonGroup, QMessageBox, QListWidget
+    QSizePolicy, QRadioButton, QButtonGroup, QMessageBox, QListWidget, QListWidgetItem
 )
 from PyQt5.QtCore import Qt
 from config import config, save_config
@@ -83,14 +83,21 @@ class QCWindow(QWidget):
         self.list1.clear()
         self.list2.clear()
         
-        for item in self.project_data:
-            self.list1.addItem(item.get('name', 'Unnamed'))
+        for item_data in self.project_data:
+            name = item_data.get('name', 'Unnamed')
+            db_id = item_data.get('DB_ID')
+            list_item = QListWidgetItem(name)
+            list_item.setData(Qt.UserRole, db_id) # Store DB_ID
+            self.list1.addItem(list_item)
 
     def on_left_list_item_clicked(self, item):
         """
         Handles clicks on the left list to populate the right list.
         """
-        clicked_item_name = item.text()
+        clicked_item_db_id = item.data(Qt.UserRole)
+        if clicked_item_db_id is None:
+            return
+
         self.list2.clear()
         self.ai_critique_button.setEnabled(False) # Disable by default
 
@@ -101,7 +108,7 @@ class QCWindow(QWidget):
 
         all_files_found = True
         for data_item in self.project_data:
-            if data_item.get('name') == clicked_item_name:
+            if data_item.get('DB_ID') == clicked_item_db_id:
                 literature_references = data_item.get('literature_references', [])
                 if not literature_references:
                     self.list2.addItem("No literature references found.")
