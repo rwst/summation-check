@@ -57,8 +57,21 @@ class QCWindow(QWidget):
         self.list1 = QListWidget()
         self.list2 = QListWidget()
 
+        # Set the maximum height of the second list to approximately 15 items
+        font_height = self.list2.fontMetrics().height()
+        self.list2.setMaximumHeight(font_height * 15 + 2 * self.list2.frameWidth())
+
+        # Use a layout to align the second list to the top
+        right_list_layout = QVBoxLayout()
+        right_list_layout.addWidget(self.list2)
+        
+        self.ai_critique_button = QPushButton("Get AI Critique")
+        right_list_layout.addWidget(self.ai_critique_button)
+        
+        right_list_layout.addStretch()
+
         layout.addWidget(self.list1)
-        layout.addWidget(self.list2)
+        layout.addLayout(right_list_layout)
 
 
 class MainAppWindow(QMainWindow):
