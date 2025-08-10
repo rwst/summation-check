@@ -10,12 +10,12 @@ import sys
 import os
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QTextEdit, QStatusBar, QSplitter, QFrame,
+    QPushButton, QLabel, QTextEdit, QStatusBar, QSplitter,
     QSizePolicy, QRadioButton, QButtonGroup, QMessageBox, QListWidget
 )
 from PyQt5.QtCore import Qt
 from config import config, save_config
-from parse_project import extract_project_data
+from parse_project import extract_event_data
 
 class WordWrapButton(QPushButton):
     def __init__(self, text="", parent=None):
@@ -28,7 +28,7 @@ class WordWrapButton(QPushButton):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.label)
         
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum))
         self.setMinimumHeight(40)
 
     def setText(self, text):
@@ -224,9 +224,9 @@ class MainAppWindow(QMainWindow):
             self.show_warning_message("File Read Error", f"Could not read project file: {e}")
             return
 
-        reaction_data = extract_project_data(xml_content)
+        event_data = extract_event_data(xml_content)
 
-        if not reaction_data:
+        if not event_data:
             self.show_warning_message("Data Extraction Error", "No data could be extracted from the project file.")
             return
 
@@ -237,12 +237,12 @@ class MainAppWindow(QMainWindow):
         self.qc_window.setWindowTitle(f"QC: {project_file_name}")
 
         # Sort the data alphabetically by name (case-insensitive)
-        sorted_project_data = sorted(reaction_data, key=lambda x: x.get('name', 'Unnamed').lower())
+        sorted_project_data = sorted(event_data, key=lambda x: x.get('name', 'Unnamed').lower())
         
         self.qc_window.update_data(sorted_project_data)
 
         self.qc_window.show()
-        self.update_status_display(f"QC Window opened. Loaded {len(reaction_data)} items.")
+        self.update_status_display(f"QC Window opened. Loaded {len(event_data)} items.")
 
     def closeEvent(self, event):
         """Ensures the QC window is closed when the main window is closed."""

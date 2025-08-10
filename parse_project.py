@@ -1,9 +1,5 @@
-import xml.etree.ElementTree as ET
-import csv
 import sys
-import os
-import argparse
-import subprocess
+import xml.etree.ElementTree as ET
 
 
 def extract_metadata_from_project_file(xml_string):
@@ -50,7 +46,7 @@ def extract_metadata_from_project_file(xml_string):
     return references
 
 
-def extract_project_data(xml_string):
+def extract_event_data(xml_string):
     """
     Parses an XML string from a Reactome project file to extract data for specific object types.
     The function extracts information for Pathway, BlackBoxEvent, FailedReaction,
