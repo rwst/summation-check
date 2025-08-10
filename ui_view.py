@@ -224,9 +224,9 @@ class MainAppWindow(QMainWindow):
             self.show_warning_message("File Read Error", f"Could not read project file: {e}")
             return
 
-        project_data = extract_project_data(xml_content)
+        reaction_data = extract_project_data(xml_content)
 
-        if not project_data:
+        if not reaction_data:
             self.show_warning_message("Data Extraction Error", "No data could be extracted from the project file.")
             return
 
@@ -237,12 +237,12 @@ class MainAppWindow(QMainWindow):
         self.qc_window.setWindowTitle(f"QC: {project_file_name}")
 
         # Sort the data alphabetically by name (case-insensitive)
-        sorted_project_data = sorted(project_data, key=lambda x: x.get('name', 'Unnamed').lower())
+        sorted_project_data = sorted(reaction_data, key=lambda x: x.get('name', 'Unnamed').lower())
         
         self.qc_window.update_data(sorted_project_data)
 
         self.qc_window.show()
-        self.update_status_display(f"QC Window opened. Loaded {len(project_data)} items.")
+        self.update_status_display(f"QC Window opened. Loaded {len(reaction_data)} items.")
 
     def closeEvent(self, event):
         """Ensures the QC window is closed when the main window is closed."""
