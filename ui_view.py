@@ -93,11 +93,36 @@ class QCWindow(QWidget):
         clicked_item_name = item.text()
         self.list2.clear()
 
+        pdf_folder = config.get("dedicated_pdf_folder")
+        if not pdf_folder or not os.path.isdir(pdf_folder):
+            self.list2.addItem("PDF folder not set or not found.")
+            return
+
         for data_item in self.project_data:
             if data_item.get('name') == clicked_item_name:
-                literature_references = data_item.get('literatureReference', [])
+                literature_references = data_item.get('literature_references', [])
+                if not literature_references:
+                    self.list2.addItem("No literature references found.")
+                    break
+
                 for ref in literature_references:
-                    self.list2.addItem(ref.get('title', 'No Title'))
+                    # ref is a list like ['pmid', 'title']
+                    pmid = ref[0] if len(ref) > 0 else None
+                    title = ref[1] if len(ref) > 1 else 'No Title'
+
+                    if not pmid:
+                        self.list2.addItem(f"❌ (No PMID) {title}")
+                        continue
+
+                    # Check for the corresponding PDF file
+                    file_exists = False
+                    for filename in os.listdir(pdf_folder):
+                        if filename.startswith(f"PMID:{pmid}"):
+                            file_exists = True
+                            break
+                    
+                    check_mark = "✓" if file_exists else "❌"
+                    self.list2.addItem(f"{check_mark} {pmid} {title}")
                 break
 
 
