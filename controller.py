@@ -7,6 +7,7 @@ the UI (view), the file system monitor, and data processing modules.
 """
 import os
 import logging
+import re
 from PyQt5.QtWidgets import QFileDialog
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 from config import config, save_config
@@ -115,8 +116,23 @@ class Controller(QObject):
         
         match = match_pdf_to_metadata(file_path, self.metadata_set)
         if match:
-            logging.info(f"PDF '{os.path.basename(file_path)}' matched with metadata: '{match['title']}'")
-            self.status_updated.emit(f"PDF '{os.path.basename(file_path)}' matched with: '{match['title']}'")
+            try:
+                if 'pubMedIdentifier' in match and match['pubMedIdentifier']:
+                    original_filename = os.path.basename(file_path)
+                    new_filename = f"PMID:{match['pubMedIdentifier']}-{original_filename}"
+                    new_filepath = os.path.join(os.path.dirname(file_path), new_filename)
+                    
+                    os.rename(file_path, new_filepath)
+                    
+                    logging.info(f"PDF '{original_filename}' matched with metadata: '{match['title']}' and renamed to '{new_filename}'")
+                    self.status_updated.emit(f"PDF '{original_filename}' matched with: '{match['title']}' and renamed.")
+                else:
+                    logging.info(f"PDF '{os.path.basename(file_path)}' matched with metadata: '{match['title']}' (no PMID for renaming)")
+                    self.status_updated.emit(f"PDF '{os.path.basename(file_path)}' matched with: '{match['title']}'")
+            except (OSError, Exception) as e:
+                error_message = f"Error renaming file {file_path}: {e}"
+                logging.error(error_message)
+                self.error_occurred.emit(error_message)
         else:
             logging.info(f"No match found for PDF '{os.path.basename(file_path)}'")
             self.status_updated.emit(f"No match for PDF: '{os.path.basename(file_path)}'")
@@ -164,11 +180,28 @@ class Controller(QObject):
         self.status_updated.emit(f"Processing PDFs in {pdf_folder}...")
         for filename in os.listdir(pdf_folder):
             if filename.lower().endswith(".pdf"):
+                if re.match(r'PMID:\d+', filename):
+                    logging.info(f"Ignoring PDF with PMID in filename: {filename}")
+                    continue
                 pdf_path = os.path.join(pdf_folder, filename)
                 match = match_pdf_to_metadata(pdf_path, self.metadata_set)
                 if match:
-                    logging.info(f"PDF '{filename}' matched with metadata: '{match['title']}'")
-                    self.status_updated.emit(f"PDF '{filename}' matched with: '{match['title']}'")
+                    try:
+                        if 'pubMedIdentifier' in match and match['pubMedIdentifier']:
+                            new_filename = f"PMID:{match['pubMedIdentifier']}-{filename}"
+                            new_filepath = os.path.join(pdf_folder, new_filename)
+                            
+                            os.rename(pdf_path, new_filepath)
+                            
+                            logging.info(f"PDF '{filename}' matched with metadata: '{match['title']}' and renamed to '{new_filename}'")
+                            self.status_updated.emit(f"PDF '{filename}' matched with: '{match['title']}' and renamed.")
+                        else:
+                            logging.info(f"PDF '{filename}' matched with metadata: '{match['title']}' (no PMID for renaming)")
+                            self.status_updated.emit(f"PDF '{filename}' matched with: '{match['title']}'")
+                    except (OSError, Exception) as e:
+                        error_message = f"Error renaming file {pdf_path}: {e}"
+                        logging.error(error_message)
+                        self.error_occurred.emit(error_message)
                 else:
                     logging.info(f"No match found for PDF '{filename}'")
                     self.status_updated.emit(f"No match for PDF: '{filename}'")

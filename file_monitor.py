@@ -10,6 +10,7 @@ import time
 import os
 import shutil
 import logging
+import re
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 from PyQt5.QtCore import QObject, pyqtSignal
@@ -58,13 +59,17 @@ class FileChangeHandler(FileSystemEventHandler, QObject):
             if event.src_path in self.processed_files and \
                time.time() - self.processed_files[event.src_path] < 5: # 5-second cooldown
                 return
+
+            file_name = os.path.basename(event.src_path)
+            if re.match(r'PMID:\d+', file_name):
+                logger.info(f"Ignoring PDF with PMID in filename: {file_name}")
+                return
             
             logger.info(f"New PDF detected: {event.src_path}")
             try:
                 # Wait a moment for the file to be fully written
                 time.sleep(1)
                 
-                file_name = os.path.basename(event.src_path)
                 destination_path = os.path.join(self.pdf_folder, file_name)
                 
                 # Check the file operation from config
