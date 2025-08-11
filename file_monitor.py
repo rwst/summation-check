@@ -11,6 +11,7 @@ import os
 import shutil
 import logging
 import re
+import threading
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 from PyQt5.QtCore import QObject, pyqtSignal
@@ -44,6 +45,7 @@ class EventHandler(FileSystemEventHandler, QObject):
     pdf_detected = pyqtSignal(str)
     project_file_changed = pyqtSignal(str)
     pdf_folder_changed = pyqtSignal()
+    error_occurred = pyqtSignal(str, str)
 
     def __init__(self, controller):
         QObject.__init__(self)
@@ -52,7 +54,8 @@ class EventHandler(FileSystemEventHandler, QObject):
         self.project_file_path = os.path.abspath(config.get("project_file_path", ""))
         self.pdf_folder = os.path.abspath(config.get("dedicated_pdf_folder", ""))
         self.downloads_folder = os.path.abspath(config.get("downloads_folder", ""))
-        self.processed_files = {}
+        self.processing_lock = threading.Lock()
+        self.last_moved = {}
 
     def on_created(self, event):
         """Called when a file or directory is created."""
@@ -85,6 +88,14 @@ class EventHandler(FileSystemEventHandler, QObject):
         if event.is_directory:
             return
 
+        now = time.time()
+        event_key = (os.path.abspath(event.src_path), os.path.abspath(event.dest_path))
+
+        # Debounce move events to avoid duplicates from a single operation.
+        if event_key in self.last_moved and now - self.last_moved.get(event_key, 0) < 2:
+            return
+        self.last_moved[event_key] = now
+
         src_path_abs = os.path.abspath(event.src_path)
         dest_path_abs = os.path.abspath(event.dest_path)
 
@@ -94,37 +105,55 @@ class EventHandler(FileSystemEventHandler, QObject):
             self.pdf_folder_changed.emit()
 
     def handle_new_download(self, src_path):
-        """Handles a new PDF detected in the downloads folder."""
-        if src_path in self.processed_files and \
-           time.time() - self.processed_files[src_path] < 5: # 5-second cooldown
-            return
+        """
+        Handles a new PDF detected in the downloads folder.
+        Uses a lock to serialize file processing and prevent race conditions.
+        """
+        with self.processing_lock:
+            # Since processing is serialized, we only need to check if the file
+            # still exists. If a previous event handled it, it will be gone.
+            if not os.path.exists(src_path):
+                logger.info(f"Ignoring event for already processed file: {src_path}")
+                return
 
-        file_name = os.path.basename(src_path)
-        if re.match(r'PMID:\d+', file_name):
-            return
-        
-        logger.info(f"New PDF detected in downloads: {src_path}")
-        try:
-            time.sleep(1) # Wait for the file to be fully written
+            logger.info(f"Processing new PDF in downloads: {src_path}")
             
-            destination_path = os.path.join(self.pdf_folder, file_name)
-            file_operation = config.get("file_operation", "Move")
+            # Wait for the file to be fully written.
+            time.sleep(1)
             
-            if file_operation == "Copy":
-                shutil.copy2(src_path, destination_path)
-                logger.info(f"Copied PDF to: {destination_path}")
-            else: # Default to "Move"
-                shutil.move(src_path, destination_path)
-                logger.info(f"Moved PDF to: {destination_path}")
-            
-            self.processed_files[src_path] = time.time()
-            self.pdf_detected.emit(destination_path)
-        except (shutil.Error, IOError, OSError) as e:
-            error_message = f"Error processing file {src_path}: {e}"
-            logger.error(error_message)
-            self.controller.show_directory_warning(
-                f"A file operation failed. Please check permissions.\n\nDetails: {error_message}"
-            )
+            # Check again after the wait.
+            if not os.path.exists(src_path):
+                logger.info(f"File disappeared during wait, likely a temp file: {src_path}")
+                return
+
+            try:
+                file_name = os.path.basename(src_path)
+                if re.match(r'PMID:\d+', file_name):
+                    return
+
+                destination_path = os.path.join(self.pdf_folder, file_name)
+                file_operation = config.get("file_operation", "Move")
+
+                if file_operation == "Copy":
+                    shutil.copy2(src_path, destination_path)
+                    logger.info(f"Copied PDF to: {destination_path}")
+                else:  # Default to "Move"
+                    shutil.move(src_path, destination_path)
+                    logger.info(f"Moved PDF to: {destination_path}")
+
+                self.pdf_detected.emit(destination_path)
+
+            except (shutil.Error, IOError, OSError) as e:
+                # This error should now be rare, but we'll keep the handler.
+                if isinstance(e, FileNotFoundError) or (hasattr(e, 'errno') and e.errno == 2):
+                    logger.info(f"Race condition handled during operation: {src_path} was moved or deleted unexpectedly.")
+                else:
+                    error_message = f"Error processing file {src_path}: {e}"
+                    logger.error(error_message)
+                    self.error_occurred.emit(
+                        "File Operation Error",
+                        f"A file operation failed. Please check permissions.\n\nDetails: {error_message}"
+                    )
 
     def on_modified(self, event):
         """Called when a file or directory is modified."""
