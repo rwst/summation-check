@@ -113,7 +113,7 @@ class EventHandler(FileSystemEventHandler, QObject):
             # Since processing is serialized, we only need to check if the file
             # still exists. If a previous event handled it, it will be gone.
             if not os.path.exists(src_path):
-                logger.info(f"Ignoring event for already processed file: {src_path}")
+                # Ignoring event for already processed file
                 return
 
             logger.info(f"Processing new PDF in downloads: {src_path}")
