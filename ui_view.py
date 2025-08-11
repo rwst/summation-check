@@ -68,6 +68,7 @@ class QCWindow(QWidget):
         right_list_layout.addWidget(self.list2)
         
         self.ai_critique_button = QPushButton("Get AI Critique")
+        self.ai_critique_button.setEnabled(False)
         right_list_layout.addWidget(self.ai_critique_button)
         
         right_list_layout.addStretch()
