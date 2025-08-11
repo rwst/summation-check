@@ -181,7 +181,7 @@ class Controller(QObject):
         for filename in os.listdir(pdf_folder):
             if filename.lower().endswith(".pdf"):
                 if re.match(r'PMID:\d+', filename):
-                    logging.info(f"Ignoring PDF with PMID in filename: {filename}")
+                    # Ignoring PDF with PMID in filename
                     continue
                 pdf_path = os.path.join(pdf_folder, filename)
                 match = match_pdf_to_metadata(pdf_path, self.metadata_set)

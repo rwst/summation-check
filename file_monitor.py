@@ -62,7 +62,7 @@ class FileChangeHandler(FileSystemEventHandler, QObject):
 
             file_name = os.path.basename(event.src_path)
             if re.match(r'PMID:\d+', file_name):
-                logger.info(f"Ignoring PDF with PMID in filename: {file_name}")
+                # Ignoring PDF with PMID in filename
                 return
             
             logger.info(f"New PDF detected: {event.src_path}")
