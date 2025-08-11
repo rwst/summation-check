@@ -12,11 +12,41 @@ import webbrowser
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QTextEdit, QStatusBar, QSplitter,
-    QSizePolicy, QRadioButton, QButtonGroup, QMessageBox, QListWidget, QListWidgetItem
+    QSizePolicy, QRadioButton, QButtonGroup, QMessageBox, QListWidget, QListWidgetItem,
+    QDialog, QFileDialog
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from config import config, save_config
 from parse_project import extract_event_data
+
+class ActionPopup(QDialog):
+    def __init__(self, pmid, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"Action for PMID: {pmid}")
+        self.pmid = pmid
+
+        layout = QVBoxLayout(self)
+        
+        self.label = QLabel(f"What would you like to do with PMID: {pmid}?")
+        layout.addWidget(self.label)
+
+        self.btn_open_browser = QPushButton("Open PMID in browser")
+        self.btn_open_and_associate = QPushButton("Open PMID in browser and associate next PDF with PMID")
+        self.btn_select_pdf = QPushButton("Select PDF to associate with PMID")
+        self.btn_cancel = QPushButton("Cancel")
+
+        self.btn_open_and_associate.setEnabled(True)
+        self.btn_select_pdf.setEnabled(True)
+
+        layout.addWidget(self.btn_open_browser)
+        layout.addWidget(self.btn_open_and_associate)
+        layout.addWidget(self.btn_select_pdf)
+        layout.addWidget(self.btn_cancel)
+
+        self.btn_open_browser.clicked.connect(lambda: self.done(1))
+        self.btn_open_and_associate.clicked.connect(lambda: self.done(2))
+        self.btn_select_pdf.clicked.connect(lambda: self.done(3))
+        self.btn_cancel.clicked.connect(self.reject)
 
 class WordWrapButton(QPushButton):
     def __init__(self, text="", parent=None):
@@ -48,6 +78,8 @@ class QCWindow(QWidget):
     """
     A window for quality control, showing two lists side-by-side.
     """
+    pmid_hint_set = pyqtSignal(str)
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("QC View")
@@ -80,17 +112,51 @@ class QCWindow(QWidget):
 
     def on_right_list_item_clicked(self, item):
         """
-        Handles clicks on the right list to open PubMed URL.
+        Handles clicks on the right list to show a popup with options.
         """
         item_text = item.text()
         parts = item_text.split()
-        
+
         # The PMID should be the second part of the string, e.g., "✓ 12345678 ..."
         if len(parts) > 1 and parts[1].isdigit():
             pmid = parts[1]
-            url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}"
-            webbrowser.open(url)
+            
+            popup = ActionPopup(pmid, self)
+            result = popup.exec_()
 
+            if result == 1: # Open PMID in browser
+                url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}"
+                webbrowser.open(url)
+            elif result == 2:
+                url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}"
+                webbrowser.open(url)
+                self.pmid_hint_set.emit(pmid)
+            elif result == 3:
+                pdf_folder = config.get("dedicated_pdf_folder", "")
+                file_path, _ = QFileDialog.getOpenFileName(
+                    self,
+                    "Select PDF to Associate",
+                    pdf_folder,
+                    "PDF Files (*.pdf)"
+                )
+                if file_path:
+                    try:
+                        directory = os.path.dirname(file_path)
+                        original_filename = os.path.basename(file_path)
+                        new_filename = f"PMID:{pmid}-{original_filename}"
+                        new_filepath = os.path.join(directory, new_filename)
+                        
+                        os.rename(file_path, new_filepath)
+                        
+                        # Refresh the view to show the change
+                        self.refresh_selected_item()
+                    except OSError as e:
+                        error_dialog = QMessageBox()
+                        error_dialog.setIcon(QMessageBox.Critical)
+                        error_dialog.setText("Error Renaming File")
+                        error_dialog.setInformativeText(f"Could not rename the file.\n\nDetails: {e}")
+                        error_dialog.setWindowTitle("Error")
+                        error_dialog.exec_()
     def update_data(self, project_data):
         """
         Populates the left list with project data and stores it.
@@ -172,6 +238,7 @@ class MainAppWindow(QMainWindow):
     """
     def __init__(self):
         super().__init__()
+        self.controller = None
         self.setWindowTitle("Summation Check Tool")
         self.setGeometry(100, 100, 1000, 700)  # Increased size for split view
 
@@ -270,6 +337,9 @@ class MainAppWindow(QMainWindow):
         self.right_layout.addWidget(self.status_display)
         self.right_layout.addWidget(self.start_qc_button)
 
+    def set_controller(self, controller):
+        self.controller = controller
+
     def open_qc_window(self):
         """
         Opens the QC window and populates it with data from the project file.
@@ -297,6 +367,8 @@ class MainAppWindow(QMainWindow):
 
         if self.qc_window is None:
             self.qc_window = QCWindow()
+            if self.controller:
+                self.qc_window.pmid_hint_set.connect(self.controller.set_pmid_hint)
 
         project_file_name = os.path.basename(project_file_path)
         self.qc_window.setWindowTitle(f"QC: {project_file_name}")

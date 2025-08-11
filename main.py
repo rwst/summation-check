@@ -42,6 +42,11 @@ def main():
     main_window = MainAppWindow()
     controller = Controller(main_window, log_handler)
 
+    # Create the main window and controller
+    main_window = MainAppWindow()
+    controller = Controller(main_window, log_handler)
+    main_window.set_controller(controller)
+
     # Connect the log handler to the UI
     log_handler.log_emitted.connect(main_window.update_status_display)
 

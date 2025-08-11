@@ -36,6 +36,7 @@ class Controller(QObject):
         self.log_handler = log_handler
         self.file_monitor = FileMonitor(self)
         self.metadata_set = []
+        self.pmid_hint = None
         self.connect_signals()
         self.status_updated.emit("Controller initialized.")
         self.file_monitor.start()
@@ -106,6 +107,12 @@ class Controller(QObject):
             self.on_project_file_changed(project_file)
 
     @pyqtSlot(str)
+    def set_pmid_hint(self, pmid):
+        """Sets the PMID hint for the next PDF."""
+        self.pmid_hint = pmid
+        self.status_updated.emit(f"PMID hint set to {pmid}. The next unmatched PDF will be associated with this PMID.")
+
+    @pyqtSlot(str)
     def on_pdf_detected(self, file_path):
         """
         Handles the event when a new PDF is detected.
@@ -116,6 +123,12 @@ class Controller(QObject):
             return
         
         match = match_pdf_to_metadata(file_path, self.metadata_set)
+
+        if not match and self.pmid_hint:
+            match = {'pubMedIdentifier': self.pmid_hint, 'title': f'Manually Associated with PMID:{self.pmid_hint}'}
+            self.status_updated.emit(f"Associating PDF with hint PMID: {match['pubMedIdentifier']}")
+            self.pmid_hint = None
+
         if match:
             try:
                 if 'pubMedIdentifier' in match and match['pubMedIdentifier']:
