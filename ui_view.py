@@ -8,6 +8,7 @@ built with PyQt5.
 
 import sys
 import os
+import webbrowser
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QTextEdit, QStatusBar, QSplitter,
@@ -58,6 +59,7 @@ class QCWindow(QWidget):
         self.list1 = QListWidget()
         self.list2 = QListWidget()
         self.list1.itemClicked.connect(self.on_left_list_item_clicked)
+        self.list2.itemClicked.connect(self.on_right_list_item_clicked)
 
         # Set the maximum height of the second list to approximately 15 items
         font_height = self.list2.fontMetrics().height()
@@ -75,6 +77,19 @@ class QCWindow(QWidget):
 
         layout.addWidget(self.list1)
         layout.addLayout(right_list_layout)
+
+    def on_right_list_item_clicked(self, item):
+        """
+        Handles clicks on the right list to open PubMed URL.
+        """
+        item_text = item.text()
+        parts = item_text.split()
+        
+        # The PMID should be the second part of the string, e.g., "✓ 12345678 ..."
+        if len(parts) > 1 and parts[1].isdigit():
+            pmid = parts[1]
+            url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}"
+            webbrowser.open(url)
 
     def update_data(self, project_data):
         """
@@ -141,6 +156,14 @@ class QCWindow(QWidget):
                 if literature_references: # Only enable if there are references
                     self.ai_critique_button.setEnabled(all_files_found)
                 break
+
+    def refresh_selected_item(self):
+        """
+        Refreshes the right list based on the currently selected item in the left list.
+        """
+        selected_items = self.list1.selectedItems()
+        if selected_items:
+            self.on_left_list_item_clicked(selected_items[0])
 
 
 class MainAppWindow(QMainWindow):

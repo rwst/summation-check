@@ -54,6 +54,7 @@ class Controller(QObject):
         # Connect file monitor signals
         self.file_monitor.event_handler.pdf_detected.connect(self.on_pdf_detected)
         self.file_monitor.event_handler.project_file_changed.connect(self.on_project_file_changed)
+        self.file_monitor.event_handler.pdf_folder_changed.connect(self.on_pdf_folder_changed)
 
     def show_directory_warning(self, message, title="Warning"):
         """Shows a warning message box."""
@@ -161,6 +162,15 @@ class Controller(QObject):
                 f"Could not read the project file. Please check the file path and permissions.\n\nDetails: {e}",
                 title="Project File Error"
             )
+
+    @pyqtSlot()
+    def on_pdf_folder_changed(self):
+        """
+        Handles the event when the PDF folder content changes.
+        """
+        if self.view.qc_window and self.view.qc_window.isVisible():
+            self.status_updated.emit("PDF folder changed. Refreshing QC view.")
+            self.view.qc_window.refresh_selected_item()
 
     def process_existing_pdfs(self):
         """
