@@ -14,6 +14,7 @@ from config import config, save_config
 from file_monitor import FileMonitor
 from match_metadata import match_pdf_to_metadata
 from parse_project import extract_metadata_from_project_file
+from prep_ai_critique import get_pdf_texts_for_pmids
 
 class Controller(QObject):
     """
@@ -185,6 +186,35 @@ class Controller(QObject):
         if self.view.qc_window and self.view.qc_window.isVisible():
             self.status_updated.emit("PDF folder changed. Refreshing QC view.")
             self.view.qc_window.refresh_selected_item()
+
+    def on_ai_critique_clicked(self):
+        """
+        Handles the click of the 'Get AI Critique' button.
+        """
+        self.status_updated.emit("Starting AI critique preparation...")
+        if self.view.qc_window:
+            list_widget = self.view.qc_window.list2
+            items = [list_widget.item(i).text() for i in range(list_widget.count())]
+
+            pdf_folder = config.get("dedicated_pdf_folder")
+            if not pdf_folder or not os.path.isdir(pdf_folder):
+                message = "Dedicated PDF folder is not set or not found."
+                self.error_occurred.emit(message)
+                self.show_directory_warning(message, title="Configuration Error")
+                return
+
+            # This function is from the new file prep_ai_critique.py
+            pdf_data = get_pdf_texts_for_pmids(items, pdf_folder)
+
+            if pdf_data:
+                self.status_updated.emit(f"Successfully prepared data for {len(pdf_data)} PMIDs.")
+                # Here you would typically pass the data to the next step,
+                # e.g., calling the Gemini API.
+                # For now, we just log the result.
+                logging.info(f"AI Critique data prepared for PMIDs: {', '.join(pdf_data.keys())}")
+                # You could also display a summary or the extracted text in a new window.
+            else:
+                self.status_updated.emit("No PMIDs found or processed for AI critique.")
 
     def process_existing_pdfs(self):
         """

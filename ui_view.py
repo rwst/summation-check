@@ -378,6 +378,8 @@ class MainAppWindow(QMainWindow):
             self.qc_window = QCWindow()
             if self.controller:
                 self.qc_window.pmid_hint_set.connect(self.controller.set_pmid_hint)
+                self.qc_window.ai_critique_button.clicked.connect(
+                    self.controller.on_ai_critique_clicked)
 
         project_file_name = os.path.basename(project_file_path)
         self.qc_window.setWindowTitle(f"QC: {project_file_name}")
