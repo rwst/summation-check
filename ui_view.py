@@ -18,6 +18,57 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, pyqtSignal
 from config import config, save_config
 from parse_project import extract_event_data
+from prep_ai_critique import CritiqueResult
+
+
+class CritiqueWindow(QDialog):
+    """
+    A dialog window to display the AI critique results.
+    """
+    def __init__(self, result, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("AI Critique Result")
+        self.setGeometry(200, 200, 900, 700)
+
+        layout = QVBoxLayout(self)
+        splitter = QSplitter(Qt.Vertical)
+
+        if isinstance(result, CritiqueResult):
+            # Critique
+            critique_label = QLabel("Critique:")
+            self.critique_text = QTextEdit(result.Critique)
+            self.critique_text.setReadOnly(True)
+            splitter.addWidget(critique_label)
+            splitter.addWidget(self.critique_text)
+
+            # Summary of Critique
+            summary_label = QLabel("Summary of Critique:")
+            self.summary_text = QTextEdit(result.SummaryOfCritique)
+            self.summary_text.setReadOnly(True)
+            splitter.addWidget(summary_label)
+            splitter.addWidget(self.summary_text)
+
+            # Improved Short Text
+            improved_text_label = QLabel("Improved Short Text:")
+            self.improved_text = QTextEdit(result.ImprovedShortText)
+            self.improved_text.setReadOnly(True)
+            splitter.addWidget(improved_text_label)
+            splitter.addWidget(self.improved_text)
+
+        else: # Handle error case
+            error_label = QLabel("An error occurred:")
+            self.error_text = QTextEdit(str(result))
+            self.error_text.setReadOnly(True)
+            splitter.addWidget(error_label)
+            splitter.addWidget(self.error_text)
+
+        layout.addWidget(splitter)
+
+        # OK Button
+        self.ok_button = QPushButton("OK")
+        self.ok_button.clicked.connect(self.accept)
+        layout.addWidget(self.ok_button)
+
 
 class ActionPopup(QDialog):
     def __init__(self, pmid, parent=None):
@@ -47,6 +98,7 @@ class ActionPopup(QDialog):
         self.btn_open_and_associate.clicked.connect(lambda: self.done(2))
         self.btn_select_pdf.clicked.connect(lambda: self.done(3))
         self.btn_cancel.clicked.connect(self.reject)
+
 
 class WordWrapButton(QPushButton):
     def __init__(self, text="", parent=None):

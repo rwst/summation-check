@@ -14,7 +14,9 @@ from config import config, save_config
 from file_monitor import FileMonitor
 from match_metadata import match_pdf_to_metadata
 from parse_project import extract_metadata_from_project_file
-from prep_ai_critique import get_pdf_texts_for_pmids
+from parse_project import extract_metadata_from_project_file, get_summary_for_event
+from prep_ai_critique import get_pdf_texts_for_pmids, get_ai_critique
+from ui_view import CritiqueWindow
 
 class Controller(QObject):
     """
@@ -192,29 +194,48 @@ class Controller(QObject):
         Handles the click of the 'Get AI Critique' button.
         """
         self.status_updated.emit("Starting AI critique preparation...")
-        if self.view.qc_window:
-            list_widget = self.view.qc_window.list2
-            items = [list_widget.item(i).text() for i in range(list_widget.count())]
+        if not self.view.qc_window:
+            return
 
-            pdf_folder = config.get("dedicated_pdf_folder")
-            if not pdf_folder or not os.path.isdir(pdf_folder):
-                message = "Dedicated PDF folder is not set or not found."
-                self.error_occurred.emit(message)
-                self.show_directory_warning(message, title="Configuration Error")
-                return
+        # 1. Get summary text for the selected event
+        selected_items = self.view.qc_window.list1.selectedItems()
+        if not selected_items:
+            self.show_directory_warning("No item selected in the left list.", title="Selection Error")
+            return
+        
+        db_id = selected_items[0].data(0x0100) # UserRole
+        project_file = config.get("project_file_path")
+        try:
+            with open(project_file, 'r', encoding='utf-8') as f:
+                xml_content = f.read()
+        except (IOError, OSError) as e:
+            self.show_directory_warning(f"Could not read project file: {e}", title="File Error")
+            return
+            
+        summary_text = get_summary_for_event(xml_content, db_id)
+        if not summary_text:
+            self.show_directory_warning(f"No summary found for DB_ID {db_id}", title="Data Error")
+            return
 
-            # This function is from the new file prep_ai_critique.py
-            pdf_data = get_pdf_texts_for_pmids(items, pdf_folder)
+        # 2. Get PDF texts
+        list_widget = self.view.qc_window.list2
+        items = [list_widget.item(i).text() for i in range(list_widget.count())]
+        pdf_folder = config.get("dedicated_pdf_folder")
+        pdf_data = get_pdf_texts_for_pmids(items, pdf_folder)
 
-            if pdf_data:
-                self.status_updated.emit(f"Successfully prepared data for {len(pdf_data)} PMIDs.")
-                # Here you would typically pass the data to the next step,
-                # e.g., calling the Gemini API.
-                # For now, we just log the result.
-                logging.info(f"AI Critique data prepared for PMIDs: {', '.join(pdf_data.keys())}")
-                # You could also display a summary or the extracted text in a new window.
-            else:
-                self.status_updated.emit("No PMIDs found or processed for AI critique.")
+        if not pdf_data:
+            self.show_directory_warning("No PDF data could be extracted.", title="PDF Error")
+            return
+
+        # 3. Call Gemini API
+        self.status_updated.emit("Calling Gemini API for critique...")
+        api_key = config.get("GEMINI_API_KEY")
+        critique_result = get_ai_critique(summary_text, pdf_data, api_key)
+
+        # 4. Display result
+        critique_window = CritiqueWindow(critique_result, self.view)
+        critique_window.exec_()
+        self.status_updated.emit("Critique window closed.")
 
     def process_existing_pdfs(self):
         """

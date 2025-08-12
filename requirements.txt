@@ -1,4 +1,3 @@
 PyMuPDF
-PyPDF2
-difflib
-PyQt5
+google-generativeai
+pydantic

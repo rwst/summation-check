@@ -135,3 +135,24 @@ def extract_event_data(xml_string):
     # Return a list of unique dictionaries, using DB_ID for uniqueness.
     unique_results = {d['DB_ID']: d for d in results}.values()
     return list(unique_results)
+
+
+def get_summary_for_event(xml_string, db_id):
+    """
+    Finds the summary text for a specific event DB_ID in the XML data.
+
+    Args:
+        xml_string (str): The XML content as a string.
+        db_id (int or str): The DB_ID of the event to find.
+
+    Returns:
+        str: The summation text for the given event, or None if not found.
+    """
+    event_data = extract_event_data(xml_string)
+    target_db_id = int(db_id)
+
+    for event in event_data:
+        if event.get('DB_ID') == target_db_id:
+            return event.get('summation_text')
+
+    return None
