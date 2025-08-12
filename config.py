@@ -18,30 +18,40 @@ DEFAULT_CONFIG = {
     "project_file_path": os.path.join(os.getcwd(), "project.rtpj"),
     "dedicated_pdf_folder": os.path.join(os.getcwd(), "PDFs"),
     "file_operation": "Move",  # "Move" or "Copy"
-    "some_other_setting": "default_value"
+    "some_other_setting": "default_value",
+    "GEMINI_API_KEY": ""
 }
 
 def load_config():
     """
     Loads the application configuration from the config file.
     If the file doesn't exist, it creates a default one.
+    It also checks for the GEMINI_API_KEY from environment variables if not set in the file.
     """
-    if not os.path.exists(CONFIG_FILE):
-        print(f"Configuration file not found. Creating a default '{CONFIG_FILE}'.")
-        save_config(DEFAULT_CONFIG)
-        return DEFAULT_CONFIG
+    config_to_load = DEFAULT_CONFIG.copy()
 
-    try:
-        with open(CONFIG_FILE, 'r') as f:
-            config_data = json.load(f)
-            # Ensure all keys from default config are present
-            for key, value in DEFAULT_CONFIG.items():
-                config_data.setdefault(key, value)
-            return config_data
-    except (json.JSONDecodeError, IOError) as e:
-        print(f"Error loading configuration: {e}. Loading default config.")
-        # In a real app, you might want to notify the user more formally
-        return DEFAULT_CONFIG
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                config_from_file = json.load(f)
+                config_to_load.update(config_from_file)
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Error loading configuration: {e}. Using default config.")
+    else:
+        print(f"Configuration file not found. Creating a default '{CONFIG_FILE}'.")
+
+    # Check for GEMINI_API_KEY from environment variable if not in config
+    if not config_to_load.get("GEMINI_API_KEY"):
+        env_api_key = os.environ.get("GEMINI_API_KEY")
+        if env_api_key:
+            config_to_load["GEMINI_API_KEY"] = env_api_key
+            print("Loaded GEMINI_API_KEY from environment variable.")
+    
+    # Ensure all default keys are present
+    for key, value in DEFAULT_CONFIG.items():
+        config_to_load.setdefault(key, value)
+
+    return config_to_load
 
 def save_config(config_data):
     """
@@ -56,5 +66,5 @@ def save_config(config_data):
 
 # Load the configuration at startup so it's available for other modules
 config = load_config()
-# Save the config on startup to ensure the PDF folder is created
+# Save the config on startup to ensure any new default keys or env vars are written to the file
 save_config(config)

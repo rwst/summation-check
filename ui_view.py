@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QTextEdit, QStatusBar, QSplitter,
     QSizePolicy, QRadioButton, QButtonGroup, QMessageBox, QListWidget, QListWidgetItem,
-    QDialog, QFileDialog
+    QDialog, QFileDialog, QInputDialog, QLineEdit
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from config import config, save_config
@@ -300,6 +300,12 @@ class MainAppWindow(QMainWindow):
         self.project_file_button = WordWrapButton(config.get("project_file_path", "Not Set"))
         self.project_file_button.setToolTip(config.get("project_file_path", "Not Set"))
 
+        # Gemini API Key
+        self.gemini_api_key_label = QLabel("GEMINI_API_KEY")
+        self.gemini_api_key_button = WordWrapButton(config.get("GEMINI_API_KEY", "Not Set"))
+        self.gemini_api_key_button.setToolTip(config.get("GEMINI_API_KEY", "Not Set"))
+        self.gemini_api_key_button.clicked.connect(self.on_gemini_api_key_clicked)
+
         # --- UI Elements (Right Panel) ---
         self.status_label = QLabel("Status Log:")
         self.status_display = QTextEdit()
@@ -331,6 +337,9 @@ class MainAppWindow(QMainWindow):
         self.left_layout.addSpacing(20)
         self.left_layout.addWidget(self.project_file_label)
         self.left_layout.addWidget(self.project_file_button)
+        self.left_layout.addSpacing(20)
+        self.left_layout.addWidget(self.gemini_api_key_label)
+        self.left_layout.addWidget(self.gemini_api_key_button)
 
         # --- Layout Management (Right) ---
         self.right_layout.addWidget(self.status_label)
@@ -390,6 +399,20 @@ class MainAppWindow(QMainWindow):
     def show_warning_message(self, title, message):
         """Displays a warning message box."""
         QMessageBox.warning(self, title, message)
+
+    def on_gemini_api_key_clicked(self):
+        """Handles clicking the GEMINI_API_KEY button."""
+        current_key = config.get("GEMINI_API_KEY", "")
+        new_key, ok = QInputDialog.getText(self, "Set Gemini API Key",
+                                           "Enter your Gemini API Key:",
+                                           QLineEdit.Normal,
+                                           current_key)
+        if ok and new_key != current_key:
+            config["GEMINI_API_KEY"] = new_key
+            save_config(config)
+            self.gemini_api_key_button.setText(new_key)
+            self.gemini_api_key_button.setToolTip(new_key)
+            self.update_status_display("GEMINI_API_KEY updated.")
 
     def on_file_op_changed(self, button):
         """Handles the change in file operation radio buttons."""
