@@ -354,8 +354,8 @@ class MainAppWindow(QMainWindow):
 
         # Gemini API Key
         self.gemini_api_key_label = QLabel("GEMINI_API_KEY")
-        self.gemini_api_key_button = WordWrapButton(config.get("GEMINI_API_KEY", "Not Set"))
-        self.gemini_api_key_button.setToolTip(config.get("GEMINI_API_KEY", "Not Set"))
+        self.gemini_api_key_button = WordWrapButton("Edit")
+        self.gemini_api_key_button.setToolTip("GEMINI_API_KEY")
         self.gemini_api_key_button.clicked.connect(self.on_gemini_api_key_clicked)
 
         # --- UI Elements (Right Panel) ---
@@ -464,8 +464,6 @@ class MainAppWindow(QMainWindow):
         if ok and new_key != current_key:
             config["GEMINI_API_KEY"] = new_key
             save_config(config)
-            self.gemini_api_key_button.setText(new_key)
-            self.gemini_api_key_button.setToolTip(new_key)
             self.update_status_display("GEMINI_API_KEY updated.")
 
     def on_file_op_changed(self, button):
