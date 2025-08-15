@@ -120,6 +120,13 @@ def extract_event_data(xml_string):
                 if lit_ref_id in literature_refs:
                     lit_ref_list.append(literature_refs[lit_ref_id])
 
+            has_event_refs = []
+            if obj_type == 'Pathway':
+                for event_attr in instance.findall("attribute[@name='hasEvent']"):
+                    event_id = event_attr.get('referTo')
+                    if event_id:
+                        has_event_refs.append(event_id)
+
             try:
                 db_id_int = int(db_id)
             except (ValueError, TypeError):
@@ -129,7 +136,9 @@ def extract_event_data(xml_string):
                 'DB_ID': db_id_int,
                 'name': name,
                 'summation_text': summation_text,
-                'literature_references': lit_ref_list
+                'literature_references': lit_ref_list,
+                'hasEvent_refs': has_event_refs,
+                'type': obj_type
             })
 
     # Return a list of unique dictionaries, using DB_ID for uniqueness.

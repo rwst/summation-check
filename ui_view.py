@@ -135,32 +135,73 @@ class QCWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("QC View")
-        self.setGeometry(150, 150, 800, 600)
+        self.setGeometry(150, 150, 960, 640)
         self.project_data = []
+        self.project_data_map = {}
 
+        # --- Main Layout ---
         layout = QHBoxLayout(self)
-        
-        self.list1 = QListWidget()
+        splitter = QSplitter(Qt.Horizontal)
+        layout.addWidget(splitter)
+
+        # --- Left and Right Panels ---
+        left_panel = QWidget()
+        right_panel = QWidget()
+        splitter.addWidget(left_panel)
+        splitter.addWidget(right_panel)
+
+        # --- Left Panel Layout ---
+        left_layout = QVBoxLayout(left_panel)
+        left_splitter = QSplitter(Qt.Vertical)
+        left_layout.addWidget(left_splitter)
+
+        # Top-left: Pathway list
+        self.list_pathways = QListWidget()
+        pathway_list_container = QWidget()
+        pathway_list_layout = QVBoxLayout(pathway_list_container)
+        pathway_list_layout.addWidget(QLabel("Pathways:"))
+        pathway_list_layout.addWidget(self.list_pathways)
+        left_splitter.addWidget(pathway_list_container)
+
+        # Bottom-left: Literature list
+        bottom_left_container = QWidget()
+        bottom_left_layout = QVBoxLayout(bottom_left_container)
+        bottom_left_layout.addWidget(QLabel("Literature References:"))
         self.list2 = QListWidget()
-        self.list1.itemClicked.connect(self.on_left_list_item_clicked)
-        self.list2.itemClicked.connect(self.on_right_list_item_clicked)
+        bottom_left_layout.addWidget(self.list2)
+        left_splitter.addWidget(bottom_left_container)
 
-        # Set the maximum height of the second list to approximately 15 items
-        font_height = self.list2.fontMetrics().height()
-        self.list2.setMaximumHeight(font_height * 15 + 2 * self.list2.frameWidth())
+        # --- Right Panel Layout ---
+        right_layout = QVBoxLayout(right_panel)
+        right_splitter = QSplitter(Qt.Vertical)
+        right_layout.addWidget(right_splitter)
 
-        # Use a layout to align the second list to the top
-        right_list_layout = QVBoxLayout()
-        right_list_layout.addWidget(self.list2)
-        
+        # Top-right: Events list
+        self.list_events = QListWidget()
+        event_list_container = QWidget()
+        event_list_layout = QVBoxLayout(event_list_container)
+        event_list_layout.addWidget(QLabel("Events in Pathway:"))
+        event_list_layout.addWidget(self.list_events)
+        right_splitter.addWidget(event_list_container)
+
+        # Bottom-right: AI critique button
+        bottom_right_container = QWidget()
+        bottom_right_layout = QVBoxLayout(bottom_right_container)
         self.ai_critique_button = QPushButton("Get AI Critique")
         self.ai_critique_button.setEnabled(False)
-        right_list_layout.addWidget(self.ai_critique_button)
-        
-        right_list_layout.addStretch()
+        bottom_right_layout.addWidget(self.ai_critique_button)
+        bottom_right_layout.addStretch()
+        right_splitter.addWidget(bottom_right_container)
 
-        layout.addWidget(self.list1)
-        layout.addLayout(right_list_layout)
+        # --- Set Splitter Sizes ---
+        splitter.setSizes([480, 480])
+        left_splitter.setSizes([424, 216])
+        right_splitter.setSizes([424, 216])
+
+        # --- Connect Signals ---
+        self.list_pathways.itemClicked.connect(self.on_pathway_list_item_clicked)
+        self.list_events.itemClicked.connect(self.on_event_list_item_clicked)
+        self.list2.itemClicked.connect(self.on_right_list_item_clicked)
 
     def on_right_list_item_clicked(self, item):
         """
@@ -214,19 +255,47 @@ class QCWindow(QWidget):
         Populates the left list with project data and stores it.
         """
         self.project_data = project_data
-        self.list1.clear()
+        self.project_data_map = {str(item['DB_ID']): item for item in self.project_data}
+        
+        self.list_pathways.clear()
+        self.list_events.clear()
         self.list2.clear()
         
         for item_data in self.project_data:
-            name = item_data.get('name', 'Unnamed')
-            db_id = item_data.get('DB_ID')
-            list_item = QListWidgetItem(name)
-            list_item.setData(Qt.UserRole, db_id) # Store DB_ID
-            self.list1.addItem(list_item)
+            if item_data.get('type') == 'Pathway':
+                name = item_data.get('name', 'Unnamed Pathway')
+                db_id = item_data.get('DB_ID')
+                list_item = QListWidgetItem(name)
+                list_item.setData(Qt.UserRole, db_id) # Store DB_ID
+                self.list_pathways.addItem(list_item)
 
-    def on_left_list_item_clicked(self, item):
+    def on_pathway_list_item_clicked(self, item):
         """
-        Handles clicks on the left list to populate the right list.
+        Handles clicks on the pathway list to populate the events list.
+        """
+        pathway_db_id = str(item.data(Qt.UserRole))
+        pathway_data = self.project_data_map.get(pathway_db_id)
+
+        self.list_events.clear()
+        self.list2.clear()
+        self.ai_critique_button.setEnabled(False)
+
+        if not pathway_data:
+            return
+
+        event_refs = pathway_data.get('hasEvent_refs', [])
+        for event_id in event_refs:
+            event_data = self.project_data_map.get(event_id)
+            if event_data:
+                name = event_data.get('name', 'Unnamed Event')
+                db_id = event_data.get('DB_ID')
+                list_item = QListWidgetItem(name)
+                list_item.setData(Qt.UserRole, db_id)
+                self.list_events.addItem(list_item)
+
+    def on_event_list_item_clicked(self, item):
+        """
+        Handles clicks on the events list to populate the literature reference list.
         """
         clicked_item_db_id = item.data(Qt.UserRole)
         if clicked_item_db_id is None:
@@ -241,14 +310,14 @@ class QCWindow(QWidget):
             return
 
         all_files_found = True
-        for data_item in self.project_data:
-            if data_item.get('DB_ID') == clicked_item_db_id:
-                literature_references = data_item.get('literature_references', [])
-                if not literature_references:
-                    self.list2.addItem("No literature references found.")
-                    all_files_found = False
-                    break
-
+        
+        data_item = self.project_data_map.get(str(clicked_item_db_id))
+        if data_item:
+            literature_references = data_item.get('literature_references', [])
+            if not literature_references:
+                self.list2.addItem("No literature references found.")
+                all_files_found = False
+            else:
                 for ref in literature_references:
                     pmid = ref[0] if len(ref) > 0 else None
                     title = ref[1] if len(ref) > 1 else 'No Title'
@@ -269,19 +338,24 @@ class QCWindow(QWidget):
 
                     check_mark = "✓" if file_exists else "❌"
                     self.list2.addItem(f"{check_mark} {pmid} {title}")
-                
-                # After checking all references for the selected item
-                if literature_references: # Only enable if there are references
-                    self.ai_critique_button.setEnabled(all_files_found)
-                break
+            
+            # After checking all references for the selected item
+            if data_item.get('literature_references'): # Only enable if there are references
+                self.ai_critique_button.setEnabled(all_files_found)
 
     def refresh_selected_item(self):
         """
         Refreshes the right list based on the currently selected item in the left list.
         """
-        selected_items = self.list1.selectedItems()
+        selected_items = self.list_events.selectedItems()
         if selected_items:
-            self.on_left_list_item_clicked(selected_items[0])
+            self.on_event_list_item_clicked(selected_items[0])
+        else:
+            # If no event is selected, maybe refresh based on pathway
+            selected_pathways = self.list_pathways.selectedItems()
+            if selected_pathways:
+                self.on_pathway_list_item_clicked(selected_pathways[0])
+
 
 
 class MainAppWindow(QMainWindow):
