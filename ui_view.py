@@ -269,20 +269,67 @@ class QCWindow(QWidget):
                 list_item.setData(Qt.UserRole, db_id) # Store DB_ID
                 self.list_pathways.addItem(list_item)
 
+    def _populate_literature_list(self, db_id):
+        """
+        Populates the literature list (list2) for a given DB_ID.
+        """
+        self.list2.clear()
+        self.ai_critique_button.setEnabled(False)
+
+        data_item = self.project_data_map.get(str(db_id))
+        if not data_item:
+            return
+
+        pdf_folder = config.get("dedicated_pdf_folder")
+        if not pdf_folder or not os.path.isdir(pdf_folder):
+            self.list2.addItem("PDF folder not set or not found.")
+            return
+
+        all_files_found = True
+        literature_references = data_item.get('literature_references', [])
+        if not literature_references:
+            self.list2.addItem("No literature references found.")
+            all_files_found = False
+        else:
+            for ref in literature_references:
+                pmid = ref[0] if len(ref) > 0 else None
+                title = ref[1] if len(ref) > 1 else 'No Title'
+
+                if not pmid:
+                    self.list2.addItem(f"❌ (No PMID) {title}")
+                    all_files_found = False
+                    continue
+
+                file_exists = False
+                for filename in os.listdir(pdf_folder):
+                    if filename.startswith(f"PMID:{pmid}"):
+                        file_exists = True
+                        break
+                
+                if not file_exists:
+                    all_files_found = False
+
+                check_mark = "✓" if file_exists else "❌"
+                self.list2.addItem(f"{check_mark} {pmid} {title}")
+        
+        if literature_references:
+            self.ai_critique_button.setEnabled(all_files_found)
+
     def on_pathway_list_item_clicked(self, item):
         """
-        Handles clicks on the pathway list to populate the events list.
+        Handles clicks on the pathway list to populate the events list and its own literature.
         """
         pathway_db_id = str(item.data(Qt.UserRole))
         pathway_data = self.project_data_map.get(pathway_db_id)
 
         self.list_events.clear()
-        self.list2.clear()
-        self.ai_critique_button.setEnabled(False)
 
         if not pathway_data:
+            self.list2.clear()
+            self.ai_critique_button.setEnabled(False)
             return
 
+        # Populate events list
         event_refs = pathway_data.get('hasEvent_refs', [])
         for event_id in event_refs:
             event_data = self.project_data_map.get(event_id)
@@ -292,6 +339,9 @@ class QCWindow(QWidget):
                 list_item = QListWidgetItem(name)
                 list_item.setData(Qt.UserRole, db_id)
                 self.list_events.addItem(list_item)
+        
+        # Populate literature list for the pathway itself
+        self._populate_literature_list(pathway_db_id)
 
     def on_event_list_item_clicked(self, item):
         """
@@ -300,48 +350,7 @@ class QCWindow(QWidget):
         clicked_item_db_id = item.data(Qt.UserRole)
         if clicked_item_db_id is None:
             return
-
-        self.list2.clear()
-        self.ai_critique_button.setEnabled(False) # Disable by default
-
-        pdf_folder = config.get("dedicated_pdf_folder")
-        if not pdf_folder or not os.path.isdir(pdf_folder):
-            self.list2.addItem("PDF folder not set or not found.")
-            return
-
-        all_files_found = True
-        
-        data_item = self.project_data_map.get(str(clicked_item_db_id))
-        if data_item:
-            literature_references = data_item.get('literature_references', [])
-            if not literature_references:
-                self.list2.addItem("No literature references found.")
-                all_files_found = False
-            else:
-                for ref in literature_references:
-                    pmid = ref[0] if len(ref) > 0 else None
-                    title = ref[1] if len(ref) > 1 else 'No Title'
-
-                    if not pmid:
-                        self.list2.addItem(f"❌ (No PMID) {title}")
-                        all_files_found = False
-                        continue
-
-                    file_exists = False
-                    for filename in os.listdir(pdf_folder):
-                        if filename.startswith(f"PMID:{pmid}"):
-                            file_exists = True
-                            break
-                    
-                    if not file_exists:
-                        all_files_found = False
-
-                    check_mark = "✓" if file_exists else "❌"
-                    self.list2.addItem(f"{check_mark} {pmid} {title}")
-            
-            # After checking all references for the selected item
-            if data_item.get('literature_references'): # Only enable if there are references
-                self.ai_critique_button.setEnabled(all_files_found)
+        self._populate_literature_list(clicked_item_db_id)
 
     def refresh_selected_item(self):
         """
