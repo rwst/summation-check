@@ -56,6 +56,7 @@ class EventHandler(FileSystemEventHandler, QObject):
         self.downloads_folder = os.path.abspath(config.get("downloads_folder", ""))
         self.processing_lock = threading.Lock()
         self.last_moved = {}
+        self.last_project_file_mod_time = 0
 
     def on_created(self, event):
         """Called when a file or directory is created."""
@@ -158,8 +159,13 @@ class EventHandler(FileSystemEventHandler, QObject):
     def on_modified(self, event):
         """Called when a file or directory is modified."""
         if not event.is_directory and os.path.abspath(event.src_path) == self.project_file_path:
-             logger.info(f"Project file changed: {event.src_path}")
-             self.project_file_changed.emit(event.src_path)
+            now = time.time()
+            # Debounce: if less than 2 seconds since last event, ignore it
+            if now - self.last_project_file_mod_time < 2:
+                return
+            self.last_project_file_mod_time = now
+            logger.info(f"Project file changed: {event.src_path}")
+            self.project_file_changed.emit(event.src_path)
 
 
 class FileMonitor:
