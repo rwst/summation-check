@@ -81,17 +81,25 @@ def load_config():
 def save_config(config_data):
     """
     Saves the given configuration data to the config file.
+    Returns True on success, False on failure.
     """
     config_path = get_config_path()
     try:
-        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+        config_dir = os.path.dirname(config_path)
+        if not os.path.exists(config_dir):
+            os.makedirs(config_dir, exist_ok=True)
+
+        if not os.access(config_dir, os.W_OK):
+            print(f"Error: Configuration directory is not writable: {config_dir}")
+            return False
+
         with open(config_path, 'w') as f:
             json.dump(config_data, f, indent=4)
+        return True
     except (IOError, OSError) as e:
-        # In a real app, you'd want to log this error properly
-        print(f"Error saving configuration or creating directory: {e}")
+        print(f"Error saving configuration: {e}")
+        return False
 
 # Load the configuration at startup so it's available for other modules
 config = load_config()
-# Save the config on startup to ensure any new default keys or env vars are written to the file
-save_config(config)
+

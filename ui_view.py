@@ -540,6 +540,13 @@ class MainAppWindow(QMainWindow):
         """Displays a warning message box."""
         QMessageBox.warning(self, title, message)
 
+    def _save_config(self):
+        if not save_config(config):
+            self.show_warning_message(
+                "Configuration Error",
+                "Could not save configuration file. Please check permissions for the user config directory."
+            )
+
     def on_gemini_api_key_clicked(self):
         """Handles clicking the GEMINI_API_KEY button."""
         current_key = config.get("GEMINI_API_KEY", "")
@@ -549,13 +556,13 @@ class MainAppWindow(QMainWindow):
                                            current_key)
         if ok and new_key != current_key:
             config["GEMINI_API_KEY"] = new_key
-            save_config(config)
+            self._save_config()
             self.update_status_display("GEMINI_API_KEY updated.")
 
     def on_file_op_changed(self, button):
         """Handles the change in file operation radio buttons."""
         config["file_operation"] = button.text()
-        save_config(config)
+        self._save_config()
         self.update_status_display(f"File operation set to {button.text()}")
 
     def update_status_display(self, message):

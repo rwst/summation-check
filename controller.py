@@ -64,12 +64,19 @@ class Controller(QObject):
         """Shows a warning message box."""
         self.view.show_warning_message(title, message)
 
+    def _save_config(self):
+        if not save_config(config):
+            self.show_directory_warning(
+                "Configuration Error",
+                "Could not save configuration file. Please check permissions for the user config directory."
+            )
+
     def select_downloads_folder(self):
         """Opens a dialog to select the downloads folder."""
         folder = QFileDialog.getExistingDirectory(self.view, "Select Downloads Folder")
         if folder:
             config["downloads_folder"] = folder
-            save_config(config)
+            self._save_config()
             self.view.downloads_button.setText(folder)
             self.status_updated.emit(f"Downloads folder set to: {folder}")
             # Restart the monitor to watch the new folder
@@ -80,13 +87,13 @@ class Controller(QObject):
         folder = QFileDialog.getExistingDirectory(self.view, "Select PDF Folder")
         if folder:
             config["dedicated_pdf_folder"] = folder
-            save_config(config)
+            self._save_config()
             self.view.pdf_folder_button.setText(folder)
             self.status_updated.emit(f"PDF folder set to: {folder}")
             self.file_monitor.update_paths()
             self.process_existing_pdfs()
 
-    def select_project_file(self):
+    def select__project_file(self):
         """Opens a dialog to select the project file."""
         file, _ = QFileDialog.getOpenFileName(
             self.view, 
@@ -96,7 +103,7 @@ class Controller(QObject):
         )
         if file:
             config["project_file_path"] = file
-            save_config(config)
+            self._save_config()
             self.view.project_file_button.setText(file)
             self.status_updated.emit(f"Project file set to: {file}")
             # Restart the monitor to watch the new folder

@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import QApplication
 from ui_view import MainAppWindow
 from controller import Controller
 from logger import setup_logger, QLogHandler
-from config import config  # Import the loaded config
+from config import config, save_config  # Import the loaded config
 
 def main():
     """
@@ -49,6 +49,15 @@ def main():
     # Show the main window
     main_window.show()
     logger.info("Application started successfully.")
+
+    # Save config on startup to write any new keys. Show error if it fails.
+    if not save_config(config):
+        main_window.show_warning_message(
+            "Configuration Error",
+            "Could not write the initial configuration file. "
+            "Please check permissions for the user config directory. "
+            "Settings will not be saved."
+        )
     
     # Start the event loop and wait for it to exit
     exit_code = app.exec_()
