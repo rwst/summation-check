@@ -118,47 +118,56 @@ def get_title_from_text(pdf_path: str) -> str | None:
 def match_pdf_to_metadata(pdf_path: str, metadata_set: list[dict]) -> dict | None:
     """
     Matches a PDF file to a metadata entry based on extracted title (using fuzzy matching).
+    First, it tries the title from PDF metadata/text. If that fails, it tries the filename.
 
     :param pdf_path: Path to the PDF file.
     :param metadata_set: List of metadata dictionaries, each with 'title': str.
     :return: Matching metadata dict or None if no match.
     """
     try:
+        # --- 1. Attempt to match using title from PDF metadata or text content ---
         extracted_title = ''
         try:
             with open(pdf_path, 'rb') as file:
                 reader = PyPDF2.PdfReader(file)
-                # Extract title from PDF metadata
                 extracted_title = reader.metadata.get('/Title', '')
         except Exception:
-            # PyPDF2 might fail on some PDFs, that's ok.
-            pass
+            pass  # PyPDF2 might fail on some PDFs, that's ok.
 
         if not extracted_title:
-            # If no title in metadata, try extracting from text
             extracted_title = get_title_from_text(pdf_path)
 
-        if not extracted_title:
-            return None
+        if extracted_title:
+            norm_extracted_title = normalize_text(extracted_title)
+            candidates = []
+            for meta in metadata_set:
+                norm_meta_title = normalize_text(meta.get('title', ''))
+                title_similarity = difflib.SequenceMatcher(None, norm_extracted_title, norm_meta_title).ratio()
+                if title_similarity >= 0.9:
+                    candidates.append((title_similarity, meta))
 
-        norm_extracted_title = normalize_text(extracted_title)
+            if candidates:
+                return max(candidates, key=lambda x: x[0])[1]
 
-        # Collect candidates where title similarity is high
+        # --- 2. Fallback: attempt to match using the PDF filename ---
+        import os
+        basename = os.path.basename(pdf_path)
+        filename_title = os.path.splitext(basename)[0]
+        # Replace common separators with spaces for better matching
+        filename_title = filename_title.replace('_', ' ').replace('-', ' ')
+        norm_filename_title = normalize_text(filename_title)
+
         candidates = []
         for meta in metadata_set:
             norm_meta_title = normalize_text(meta.get('title', ''))
-
-            title_similarity = difflib.SequenceMatcher(None, norm_extracted_title, norm_meta_title).ratio()
-
-            # Use a threshold for title similarity to consider it a potential match
+            title_similarity = difflib.SequenceMatcher(None, norm_filename_title, norm_meta_title).ratio()
             if title_similarity >= 0.9:
                 candidates.append((title_similarity, meta))
 
         if candidates:
-            # Return the metadata with the highest title similarity from the candidates
             return max(candidates, key=lambda x: x[0])[1]
-        else:
-            return None
+
+        return None
 
     except Exception:
         return None
