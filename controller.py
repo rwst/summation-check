@@ -198,10 +198,12 @@ class Controller(QObject):
             return
 
         # 1. Get summary text for the selected event
-        selected_items = self.view.qc_window.list1.selectedItems()
+        selected_items = self.view.qc_window.list_events.selectedItems()
         if not selected_items:
-            self.show_directory_warning("No item selected in the left list.", title="Selection Error")
-            return
+            selected_items = self.view.qc_window.list_pathways.selectedItems()
+            if not selected_items:
+                self.show_directory_warning("No item selected any list.", title="Selection Error")
+                return
         
         db_id = selected_items[0].data(0x0100) # UserRole
         project_file = config.get("project_file_path")
