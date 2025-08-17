@@ -28,7 +28,7 @@ class CritiqueWindow(QDialog):
     def __init__(self, result, parent=None):
         super().__init__(parent)
         self.setWindowTitle("AI Critique Result")
-        self.setGeometry(200, 200, 900, 700)
+        self.setGeometry(200, 200, 700, 540)
 
         layout = QVBoxLayout(self)
         splitter = QSplitter(Qt.Vertical)
