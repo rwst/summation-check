@@ -13,7 +13,6 @@ from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 from config import config, save_config
 from file_monitor import FileMonitor
 from match_metadata import match_pdf_to_metadata
-from parse_project import extract_metadata_from_project_file
 from parse_project import extract_metadata_from_project_file, get_summary_for_event
 from prep_ai_critique import get_pdf_texts_for_pmids, get_ai_critique
 from ui_view import CritiqueWindow
