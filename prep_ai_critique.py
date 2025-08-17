@@ -75,13 +75,15 @@ def get_pdf_texts_for_pmids(qc_list_items, pdf_folder):
     PDF for each PMID, reads the text, and returns a dictionary with PMID as key
     and PDF text as value.
 
+    If a .txt file with the same basename as the PDF exists, its content will be used.
+
     Args:
         qc_list_items (list): A list of strings from the QC window's right list.
         pdf_folder (str): The path to the folder containing the PDF files.
 
     Returns:
         dict: A dictionary where keys are PMIDs (str) and values are the
-              extracted text from the corresponding PDFs (str).
+              extracted text from the corresponding PDFs or TXT files (str).
     """
     pmid_texts = {}
 
@@ -102,18 +104,33 @@ def get_pdf_texts_for_pmids(qc_list_items, pdf_folder):
         for filename in os.listdir(pdf_folder):
             if filename.startswith(f"PMID:{pmid}") and filename.lower().endswith('.pdf'):
                 pdf_path = os.path.join(pdf_folder, filename)
-                try:
-                    with fitz.open(pdf_path) as doc:
-                        text = ""
-                        for page in doc:
-                            text += page.get_text()
-                        pmid_texts[pmid] = text
-                        logger.info(f"Successfully extracted text from {filename} for PMID {pmid}.")
-                except Exception as e:
-                    # Handle cases where PDF is corrupt or can't be read
-                    error_message = f"Error reading PDF {filename} for PMID {pmid}: {e}"
-                    logger.error(error_message)
-                    pmid_texts[pmid] = error_message
+                txt_path = os.path.splitext(pdf_path)[0] + '.txt'
+
+                text = ""
+                # Try to read from .txt file first
+                if os.path.exists(txt_path):
+                    try:
+                        with open(txt_path, 'r', encoding='utf-8') as f:
+                            text = f.read()
+                        logger.info(f"Successfully extracted text from {os.path.basename(txt_path)} for PMID {pmid}.")
+                    except Exception as e:
+                        error_message = f"Error reading TXT file {os.path.basename(txt_path)} for PMID {pmid}: {e}"
+                        logger.error(error_message)
+                        text = error_message
+                # Fallback to PDF extraction
+                else:
+                    try:
+                        with fitz.open(pdf_path) as doc:
+                            for page in doc:
+                                text += page.get_text()
+                            logger.info(f"Successfully extracted text from {filename} for PMID {pmid}.")
+                    except Exception as e:
+                        # Handle cases where PDF is corrupt or can't be read
+                        error_message = f"Error reading PDF {filename} for PMID {pmid}: {e}"
+                        logger.error(error_message)
+                        text = error_message
+                
+                pmid_texts[pmid] = text
                 found_pdf = True
                 break
         if not found_pdf:
