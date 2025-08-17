@@ -294,6 +294,9 @@ class QCWindow(QWidget):
             for ref in literature_references:
                 pmid = ref[0] if len(ref) > 0 else None
                 title = ref[1] if len(ref) > 1 else 'No Title'
+                year = ref[2] if len(ref) > 2 and ref[2] else 'N/A'
+                authors = ref[3] if len(ref) > 3 and ref[3] else []
+                surname = authors[0] if authors else 'N/A'
 
                 if not pmid:
                     self.list2.addItem(f"❌ (No PMID) {title}")
@@ -310,7 +313,7 @@ class QCWindow(QWidget):
                     all_files_found = False
 
                 check_mark = "✓" if file_exists else "❌"
-                self.list2.addItem(f"{check_mark} {pmid} {title}")
+                self.list2.addItem(f"{check_mark} {pmid} {surname} ({year}): {title}")
         
         if literature_references:
             self.ai_critique_button.setEnabled(all_files_found)

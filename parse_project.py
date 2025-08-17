@@ -59,7 +59,7 @@ def extract_event_data(xml_string):
         A list of unique dictionaries, where each dictionary contains data for an object.
         The dictionary keys are 'DB_ID', 'name', 'summation_text', and 'literature_references'.
         'literature_references' is a list of lists, with each inner list containing
-        [pubMedIdentifier, title].
+        [pubMedIdentifier, title, year, [author_surnames]].
     """
     try:
         root = ET.fromstring(xml_string)
@@ -76,6 +76,27 @@ def extract_event_data(xml_string):
         if text_attr is not None and text_attr.get('value') is not None:
             summations[db_id] = text_attr.get('value')
 
+    persons = {}
+    for person_instance in root.findall('.//Person/instance'):
+        db_id = person_instance.get('DB_ID')
+        if not db_id:
+            continue
+
+        surname = None
+        # For non-shell instances, surname is an attribute
+        surname_attr = person_instance.find("attribute[@name='surname']")
+        if surname_attr is not None:
+            surname = surname_attr.get('value')
+
+        # For shell instances, it's in the displayName
+        if not surname:
+            display_name = person_instance.get('displayName')
+            if display_name:
+                surname = display_name.split(',')[0].strip()
+
+        if surname:
+            persons[db_id] = surname
+
     literature_refs = {}
     for lit_ref_instance in root.findall('.//LiteratureReference/instance'):
         db_id = lit_ref_instance.get('DB_ID')
@@ -84,12 +105,20 @@ def extract_event_data(xml_string):
 
         title_attr = lit_ref_instance.find("attribute[@name='title']")
         pubmed_attr = lit_ref_instance.find("attribute[@name='pubMedIdentifier']")
+        year_attr = lit_ref_instance.find("attribute[@name='year']")
 
         title = title_attr.get('value') if title_attr is not None else None
         pubmed_id = pubmed_attr.get('value') if pubmed_attr is not None else None
+        year = year_attr.get('value') if year_attr is not None else None
+
+        authors = []
+        for author_attr in lit_ref_instance.findall("attribute[@name='author']"):
+            author_id = author_attr.get('referTo')
+            if author_id in persons:
+                authors.append(persons[author_id])
 
         if title and pubmed_id:
-            literature_refs[db_id] = [pubmed_id, title]
+            literature_refs[db_id] = [pubmed_id, title, year, authors]
 
     results = []
     object_types = ['Pathway', 'BlackBoxEvent', 'FailedReaction', 'Polymerisation', 'Reaction']
