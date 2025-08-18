@@ -1,4 +1,6 @@
+PyQt5
 PyMuPDF
 google-generativeai
 pydantic
 platformdirs
+watchdog
