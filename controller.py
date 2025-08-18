@@ -93,7 +93,7 @@ class Controller(QObject):
             self.file_monitor.update_paths()
             self.process_existing_pdfs()
 
-    def select__project_file(self):
+    def select_project_file(self):
         """Opens a dialog to select the project file."""
         file, _ = QFileDialog.getOpenFileName(
             self.view, 
