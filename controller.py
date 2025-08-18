@@ -60,7 +60,7 @@ class Controller(QObject):
         self.file_monitor.event_handler.pdf_folder_changed.connect(self.on_pdf_folder_changed)
         self.file_monitor.event_handler.error_occurred.connect(self.show_directory_warning)
 
-    def show_directory_warning(self, title="Warning", message=""):
+    def show_directory_warning(self, message, title="Warning"):
         """Shows a warning message box."""
         self.view.show_warning_message(title, message)
 
