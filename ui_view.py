@@ -315,8 +315,8 @@ class QCWindow(QWidget):
                 check_mark = "✓" if file_exists else "❌"
                 self.list2.addItem(f"{check_mark} {pmid} {surname} ({year}): {title}")
         
-        if literature_references:
-            self.ai_critique_button.setEnabled(all_files_found)
+        # The button should only be enabled if there are references and all files are found.
+        self.ai_critique_button.setEnabled(all_files_found and bool(literature_references))
 
     def on_pathway_list_item_clicked(self, item):
         """
