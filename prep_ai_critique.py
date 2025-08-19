@@ -91,7 +91,7 @@ def get_pdf_texts_for_pmids(qc_list_items, pdf_folder):
     pmids = []
     for item_text in qc_list_items:
         # Item text is like "✓ 12345678 Some Title"
-        match = re.search(r'^PMID:(\d+)-', item_text)
+        match = re.search(r'(\d{6,})', item_text)
         if match:
             pmids.append(match.group(1))
 
