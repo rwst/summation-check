@@ -9,13 +9,34 @@ import os
 import logging
 import re
 from PyQt5.QtWidgets import QFileDialog
-from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QThread
 from config import config, save_config
 from file_monitor import FileMonitor
 from match_metadata import match_pdf_to_metadata
 from parse_project import extract_metadata_from_project_file, get_summary_for_event
 from prep_ai_critique import get_pdf_texts_for_pmids, get_ai_critique
 from ui_view import CritiqueWindow
+
+
+class AiCritiqueWorker(QObject):
+    """
+    Worker thread for running the AI critique API call without blocking the GUI.
+    """
+    finished = pyqtSignal(object)
+
+    def __init__(self, summary_text, pdf_data, api_key):
+        super().__init__()
+        self.summary_text = summary_text
+        self.pdf_data = pdf_data
+        self.api_key = api_key
+
+    @pyqtSlot()
+    def run(self):
+        """Runs the AI critique and emits the result."""
+        result = get_ai_critique(self.summary_text, self.pdf_data, self.api_key)
+        self.finished.emit(result)
+
+
 
 class Controller(QObject):
     """
@@ -43,6 +64,8 @@ class Controller(QObject):
         self.status_updated.emit("Controller initialized.")
         self.file_monitor.start()
         self.load_initial_metadata()
+        self.critique_thread = None
+        self.critique_worker = None
 
     def connect_signals(self):
         """
@@ -195,61 +218,94 @@ class Controller(QObject):
             self.status_updated.emit("PDF folder changed. Refreshing QC view.")
             self.view.qc_window.refresh_selected_item()
 
+    def update_timer(self):
+        """Updates the timer label in the QC window."""
+        if self.view.qc_window:
+            self.view.qc_window.elapsed_time += 1
+            self.view.qc_window.timer_label.setText(f"Requesting critique... {self.view.qc_window.elapsed_time}s")
+
     def on_ai_critique_clicked(self):
         """
-        Handles the click of the 'Get AI Critique' button.
+        Handles the click of the 'Get AI Critique' button by running it in a worker thread.
         """
         self.status_updated.emit("Starting AI critique preparation...")
         if not self.view.qc_window:
             return
 
-        # Disable the button to prevent multiple clicks
-        self.view.qc_window.ai_critique_button.setEnabled(False)
-        try:
-            # 1. Get summary text for the selected event
-            selected_items = self.view.qc_window.list_events.selectedItems()
+        # 1. Get summary text for the selected event
+        selected_items = self.view.qc_window.list_events.selectedItems()
+        if not selected_items:
+            selected_items = self.view.qc_window.list_pathways.selectedItems()
             if not selected_items:
-                selected_items = self.view.qc_window.list_pathways.selectedItems()
-                if not selected_items:
-                    self.show_directory_warning("No item selected any list.", title="Selection Error")
-                    return
+                self.show_directory_warning("No item selected in any list.", title="Selection Error")
+                return
+        
+        db_id = selected_items[0].data(0x0100) # UserRole
+        project_file = config.get("project_file_path")
+        try:
+            with open(project_file, 'r', encoding='utf-8') as f:
+                xml_content = f.read()
+        except (IOError, OSError) as e:
+            self.show_directory_warning(f"Could not read project file: {e}", title="File Error")
+            return
             
-            db_id = selected_items[0].data(0x0100) # UserRole
-            project_file = config.get("project_file_path")
-            try:
-                with open(project_file, 'r', encoding='utf-8') as f:
-                    xml_content = f.read()
-            except (IOError, OSError) as e:
-                self.show_directory_warning(f"Could not read project file: {e}", title="File Error")
-                return
-                
-            summary_text = get_summary_for_event(xml_content, db_id)
-            if not summary_text:
-                self.show_directory_warning(f"No summary found for DB_ID {db_id}", title="Data Error")
-                return
+        summary_text = get_summary_for_event(xml_content, db_id)
+        if not summary_text:
+            self.show_directory_warning(f"No summary found for DB_ID {db_id}", title="Data Error")
+            return
 
-            # 2. Get PDF texts
-            list_widget = self.view.qc_window.list2
-            items = [list_widget.item(i).text() for i in range(list_widget.count())]
-            pdf_folder = config.get("dedicated_pdf_folder")
-            pdf_data = get_pdf_texts_for_pmids(items, pdf_folder)
+        # 2. Get PDF texts
+        list_widget = self.view.qc_window.list2
+        items = [list_widget.item(i).text() for i in range(list_widget.count())]
+        pdf_folder = config.get("dedicated_pdf_folder")
+        pdf_data = get_pdf_texts_for_pmids(items, pdf_folder)
 
-            if not pdf_data:
-                self.show_directory_warning("No PDF data could be extracted.", title="PDF Error")
-                return
+        if not pdf_data:
+            self.show_directory_warning("No PDF data could be extracted.", title="PDF Error")
+            return
 
-            # 3. Call Gemini API
-            self.status_updated.emit("Calling Gemini API for critique...")
-            api_key = config.get("GEMINI_API_KEY")
-            critique_result = get_ai_critique(summary_text, pdf_data, api_key)
+        # 3. Disable button, start timer, and run API call in a worker thread
+        self.view.qc_window.ai_critique_button.setEnabled(False)
+        self.view.qc_window.elapsed_time = 0
+        self.view.qc_window.timer_label.setText("Requesting critique... 0s")
+        self.view.qc_window.timer_label.show()
+        self.view.qc_window.timer.timeout.connect(self.update_timer)
+        self.view.qc_window.timer.start(1000)
+        
+        self.status_updated.emit("Calling Gemini API for critique...")
+        api_key = config.get("GEMINI_API_KEY")
 
-            # 4. Display result
-            critique_window = CritiqueWindow(critique_result, self.view)
-            critique_window.exec_()
-            self.status_updated.emit("Critique window closed.")
-        finally:
-            # Re-enable the button after the operation is complete
-            self.view.qc_window.ai_critique_button.setEnabled(True)
+        # Setup and start the thread
+        self.critique_thread = QThread()
+        self.critique_worker = AiCritiqueWorker(summary_text, pdf_data, api_key)
+        self.critique_worker.moveToThread(self.critique_thread)
+        
+        self.critique_thread.started.connect(self.critique_worker.run)
+        self.critique_worker.finished.connect(self.on_ai_critique_finished)
+        
+        self.critique_thread.start()
+
+    def on_ai_critique_finished(self, critique_result):
+        """
+        Handles the result from the AI critique worker thread.
+        """
+        # Stop the timer and hide the label
+        self.view.qc_window.timer.stop()
+        self.view.qc_window.timer_label.hide()
+
+        # Display result in a new window
+        critique_window = CritiqueWindow(critique_result, self.view)
+        critique_window.exec_()
+        self.status_updated.emit("Critique window closed.")
+
+        # Clean up the thread
+        self.critique_thread.quit()
+        self.critique_thread.wait()
+        self.critique_thread = None
+        self.critique_worker = None
+
+        # Re-enable the button
+        self.view.qc_window.ai_critique_button.setEnabled(True)
 
     def process_existing_pdfs(self):
         """

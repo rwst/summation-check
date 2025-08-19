@@ -15,7 +15,7 @@ from PyQt5.QtWidgets import (
     QSizePolicy, QRadioButton, QButtonGroup, QMessageBox, QListWidget, QListWidgetItem,
     QDialog, QFileDialog, QInputDialog, QLineEdit
 )
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 from config import config, save_config
 from parse_project import extract_event_data
 from prep_ai_critique import CritiqueResult
@@ -138,6 +138,8 @@ class QCWindow(QWidget):
         self.setGeometry(150, 150, 960, 640)
         self.project_data = []
         self.project_data_map = {}
+        self.timer = QTimer(self)
+        self.elapsed_time = 0
 
         # --- Main Layout ---
         layout = QHBoxLayout(self)
@@ -190,6 +192,12 @@ class QCWindow(QWidget):
         self.ai_critique_button = QPushButton("Get AI Critique")
         self.ai_critique_button.setEnabled(False)
         bottom_right_layout.addWidget(self.ai_critique_button)
+        
+        self.timer_label = QLabel("")
+        self.timer_label.setAlignment(Qt.AlignCenter)
+        self.timer_label.hide()
+        bottom_right_layout.addWidget(self.timer_label)
+
         bottom_right_layout.addStretch()
         right_splitter.addWidget(bottom_right_container)
 
