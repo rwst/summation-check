@@ -9,7 +9,7 @@
 - a Python/Qt desktop app monitoring two directories and a file, and collecting data that is finally sent to the Gemini API for critique
 - the source files are in the current directory, with main.py the starting point
 - you have permission to change any py file, provided you communicate the change
-- you explicity don't have permission to use git
+- you explicity don't have permission to use other shell commands than those for reading or writing py files. Examples include: git, python-compiler.
 
 ## Regarding Dependencies:
 
