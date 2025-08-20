@@ -526,6 +526,7 @@ class MainAppWindow(QMainWindow):
                 self.qc_window.pmid_hint_set.connect(self.controller.set_pmid_hint)
                 self.qc_window.ai_critique_button.clicked.connect(
                     self.controller.on_ai_critique_clicked)
+                self.qc_window.timer.timeout.connect(self.controller.update_timer)
 
         project_file_name = os.path.basename(project_file_path)
         self.qc_window.setWindowTitle(f"QC: {project_file_name}")

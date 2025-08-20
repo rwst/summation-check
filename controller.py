@@ -269,7 +269,6 @@ class Controller(QObject):
         self.view.qc_window.elapsed_time = 0
         self.view.qc_window.timer_label.setText("Requesting critique... 0s")
         self.view.qc_window.timer_label.show()
-        self.view.qc_window.timer.timeout.connect(self.update_timer)
         self.view.qc_window.timer.start(1000)
         
         self.status_updated.emit("Calling Gemini API for critique...")
