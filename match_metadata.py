@@ -161,7 +161,7 @@ def match_pdf_to_metadata(pdf_path: str, metadata_set: list[dict]) -> dict | Non
         for meta in metadata_set:
             norm_meta_title = normalize_text(meta.get('title', ''))
             title_similarity = difflib.SequenceMatcher(None, norm_filename_title, norm_meta_title).ratio()
-            if title_similarity >= 0.9:
+            if title_similarity >= 0.6:
                 candidates.append((title_similarity, meta))
 
         if candidates:
