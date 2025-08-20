@@ -293,7 +293,7 @@ class Controller(QObject):
         self.view.qc_window.timer_label.hide()
 
         # Display result in a new window
-        critique_window = CritiqueWindow(critique_result, self.view)
+        critique_window = CritiqueWindow(critique_result, self.view.qc_window)
         critique_window.exec_()
         self.status_updated.emit("Critique window closed.")
 
