@@ -265,6 +265,7 @@ class Controller(QObject):
             return
 
         # 3. Disable button, start timer, and run API call in a worker thread
+        self.view.qc_window.is_critique_running = True
         self.view.qc_window.ai_critique_button.setEnabled(False)
         self.view.qc_window.elapsed_time = 0
         self.view.qc_window.timer_label.setText("Requesting critique... 0s")
@@ -303,8 +304,9 @@ class Controller(QObject):
         self.critique_thread = None
         self.critique_worker = None
 
-        # Re-enable the button
-        self.view.qc_window.ai_critique_button.setEnabled(True)
+        # Update button state by refreshing the view
+        self.view.qc_window.is_critique_running = False
+        self.view.qc_window.refresh_selected_item()
 
     def process_existing_pdfs(self):
         """

@@ -140,6 +140,7 @@ class QCWindow(QWidget):
         self.project_data_map = {}
         self.timer = QTimer(self)
         self.elapsed_time = 0
+        self.is_critique_running = False
 
         # --- Main Layout ---
         layout = QHBoxLayout(self)
@@ -324,7 +325,8 @@ class QCWindow(QWidget):
                 self.list2.addItem(f"{check_mark} {pmid} {surname} ({year}): {title}")
         
         # The button should only be enabled if there are references and all files are found.
-        self.ai_critique_button.setEnabled(all_files_found and bool(literature_references))
+        if not self.is_critique_running:
+            self.ai_critique_button.setEnabled(all_files_found and bool(literature_references))
 
     def on_pathway_list_item_clicked(self, item):
         """
