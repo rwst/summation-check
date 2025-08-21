@@ -13,7 +13,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QThread
 from config import config, save_config
 from file_monitor import FileMonitor
 from match_metadata import match_pdf_to_metadata
-from parse_project import extract_metadata_from_project_file, get_summary_for_event
+from parse_project import extract_metadata_from_project_file, get_summary_for_event, extract_event_data
 from prep_ai_critique import get_pdf_texts_for_pmids, get_ai_critique
 from ui_view import CritiqueWindow
 
@@ -190,15 +190,26 @@ class Controller(QObject):
         Handles the event when the project file is changed.
         """
         self.status_updated.emit(f"Project file updated: {file_path}. Loading new metadata.")
-        if self.view.qc_window:
-            self.view.qc_window.close()
-            self.status_updated.emit("QC window closed due to project file change.")
-            
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             self.metadata_set = extract_metadata_from_project_file(content)
             self.status_updated.emit(f"Successfully loaded {len(self.metadata_set)} metadata entries.")
+
+            # If QC window is open, refresh its data
+            if self.view.qc_window and self.view.qc_window.isVisible():
+                self.status_updated.emit("Project file changed. Refreshing QC view.")
+                event_data = extract_event_data(content)
+                if event_data:
+                    sorted_project_data = sorted(event_data, key=lambda x: x.get('name', 'Unnamed').lower())
+                    self.view.qc_window.update_data(sorted_project_data)
+                    project_file_name = os.path.basename(file_path)
+                    self.view.qc_window.setWindowTitle(f"QC: {project_file_name}")
+                    self.status_updated.emit(f"QC Window updated. Loaded {len(event_data)} items.")
+                else:
+                    self.view.qc_window.update_data([]) # Clear lists
+                    self.status_updated.emit("No data could be extracted from project file, QC view cleared.")
+
             self.process_existing_pdfs()
         except (IOError, OSError, Exception) as e:
             error_message = f"Error reading project file: {e}"
