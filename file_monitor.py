@@ -164,8 +164,17 @@ class EventHandler(FileSystemEventHandler, QObject):
             if now - self.last_project_file_mod_time < 2:
                 return
             self.last_project_file_mod_time = now
-            logger.info(f"Project file changed: {event.src_path}")
-            self.project_file_changed.emit(event.src_path)
+            
+            # Wait for the file write to complete and check for content
+            time.sleep(0.5) # Wait for 500ms
+            try:
+                if os.path.getsize(event.src_path) > 0:
+                    logger.info(f"Project file changed: {event.src_path}")
+                    self.project_file_changed.emit(event.src_path)
+                else:
+                    logger.warning(f"Project file modification detected, but file is empty. Ignoring. Path: {event.src_path}")
+            except OSError as e:
+                logger.error(f"Error accessing project file after modification: {e}")
 
 
 class FileMonitor:
