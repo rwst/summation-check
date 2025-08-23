@@ -5,6 +5,7 @@ import difflib
 import sys
 import logging
 import os
+import re
 
 def normalize_text(text: str) -> str:
     """
@@ -15,7 +16,7 @@ def normalize_text(text: str) -> str:
 
 def get_title_from_text(pdf_path: str) -> str | None:
     """
-    Extracts the title from the PDF's text using langextract.
+    Extracts the title from the PDF's text using langextract and caches the result.
     This is a fallback for when the '/Title' metadata field is not available.
     """
     text = ""
@@ -35,6 +36,14 @@ def get_title_from_text(pdf_path: str) -> str | None:
         return None
 
     if not text:
+        return None
+
+    # Clean up extracted text to handle common extraction issues
+    text = text.replace('\u2002', ' ')  # Replace EN SPACE with regular space
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    if not text:
+        print(f"Extracted text from {pdf_path} is empty after cleaning. Skipping langextract.", file=sys.stderr)
         return None
 
     # Use langextract to get the title
@@ -137,6 +146,18 @@ ABSTRACT: Dual oxidases (DUOX) 1 and 2 are components of the thyroid H2O2-genera
         )
         if result and result.extractions:
             extracted_title = result.extractions[0].extraction_text
+            # Cache the result to a .title file
+            if extracted_title:
+                try:
+                    pdf_dir = os.path.dirname(pdf_path)
+                    pdf_basename = os.path.splitext(os.path.basename(pdf_path))[0]
+                    cache_file_path = os.path.join(pdf_dir, f"{pdf_basename}.title")
+                    with open(cache_file_path, 'w', encoding='utf-8') as f:
+                        f.write(extracted_title)
+                    logging.info(f"Cached extracted title for '{os.path.basename(pdf_path)}'.")
+                except (IOError, OSError) as e:
+                    logging.error(f"Error writing cache file for {pdf_path}: {e}")
+
     except Exception as e:
         print(f"Error during langextract title extraction for {pdf_path}: {e}", file=sys.stderr)
 
@@ -172,7 +193,8 @@ def _find_best_match(title_to_match: str, metadata_set: list[dict], similarity_t
 def match_pdf_to_metadata(pdf_path: str, metadata_set: list[dict]) -> dict | None:
     """
     Matches a PDF file to a metadata entry based on extracted title (using fuzzy matching).
-    It tries matching in the following order: PDF metadata '/Title', filename, and finally text content.
+    It tries matching in the following order: PDF metadata '/Title', filename, cached title, 
+    and finally text content.
 
     :param pdf_path: Path to the PDF file.
     :param metadata_set: List of metadata dictionaries, each with 'title': str.
@@ -205,13 +227,33 @@ def match_pdf_to_metadata(pdf_path: str, metadata_set: list[dict]) -> dict | Non
             logging.info(f"Matched PDF '{os.path.basename(pdf_path)}' using filename.")
             return match
 
-        # --- 3. Fallback: attempt to match using text content (langextract) ---
-        content_title = get_title_from_text(pdf_path)
-        if content_title:
-            match = _find_best_match(content_title, metadata_set, 0.9)
-            if match:
-                logging.info(f"Matched PDF '{os.path.basename(pdf_path)}' using text content (langextract).")
-                return match
+        # --- 3. Fallback: attempt to match using cached or extracted text content ---
+        pdf_dir = os.path.dirname(pdf_path)
+        pdf_basename = os.path.splitext(os.path.basename(pdf_path))[0]
+        cache_file_path = os.path.join(pdf_dir, f"{pdf_basename}.title")
+        content_title = None
+
+        # Check for cache file
+        if os.path.exists(cache_file_path):
+            try:
+                with open(cache_file_path, 'r', encoding='utf-8') as f:
+                    content_title = f.read().strip()
+                if content_title:
+                    match = _find_best_match(content_title, metadata_set, 0.9)
+                    if match:
+                        logging.info(f"Matched PDF '{os.path.basename(pdf_path)}' using cached title file.")
+                        return match
+            except (IOError, OSError) as e:
+                logging.error(f"Error reading cache file {cache_file_path}: {e}")
+        
+        # If no cache hit, run langextract
+        if not content_title:
+            content_title = get_title_from_text(pdf_path)
+            if content_title:
+                match = _find_best_match(content_title, metadata_set, 0.9)
+                if match:
+                    logging.info(f"Matched PDF '{os.path.basename(pdf_path)}' using text content (langextract).")
+                    return match
 
         return None
 
