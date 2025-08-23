@@ -1,5 +1,5 @@
 PyQt5
-PyMuPDF
+langextract
 google-generativeai
 pydantic
 platformdirs

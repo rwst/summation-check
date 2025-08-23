@@ -1,8 +1,10 @@
 import PyPDF2
-import fitz  # PyMuPDF
+import langextract as lx
 import unicodedata
 import difflib
 import sys
+import logging
+import os
 
 def normalize_text(text: str) -> str:
     """
@@ -13,106 +15,132 @@ def normalize_text(text: str) -> str:
 
 def get_title_from_text(pdf_path: str) -> str | None:
     """
-    Extracts the title from the PDF's text using heuristics.
+    Extracts the title from the PDF's text using langextract.
     This is a fallback for when the '/Title' metadata field is not available.
-
-    The algorithm assumes the title is:
-    1. On the first page.
-    2. Has the largest font size.
-    3. Is located near the top of the page.
-
-    Args:
-        pdf_path: The path to the PDF file.
-
-    Returns:
-        The extracted title string if successful, otherwise None.
     """
+    text = ""
     try:
-        doc = fitz.open(pdf_path)
+        with open(pdf_path, 'rb') as file:
+            reader = PyPDF2.PdfReader(file)
+            # Extract the first 3000 characters of text
+            for page in reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text
+                if len(text) >= 3000:
+                    break
+            text = text[:3000]
     except Exception as e:
-        print(f"Error opening PDF {pdf_path} with PyMuPDF: {e}", file=sys.stderr)
+        print(f"Error reading PDF {pdf_path} with PyPDF2: {e}", file=sys.stderr)
         return None
 
-    if len(doc) == 0:
-        print(f"PDF file {pdf_path} has no pages.", file=sys.stderr)
+    if not text:
         return None
 
-    first_page = doc[0]
-    page_height = first_page.rect.height
+    # Use langextract to get the title
+    prompt = "Extract the title of the scientific article from the following text."
+    
+    examples = [
+        lx.data.ExampleData(
+            text="The ultimate guide to writing scientific papers. John Doe. University of Science. Abstract: This paper discusses...",
+            extractions=[
+                lx.data.Extraction(
+                    extraction_class="title",
+                    extraction_text="The ultimate guide to writing scientific papers",
+                )
+            ],
+        ),
+        lx.data.ExampleData(
+            text="""
+Biochcmicd
 
-    # Extract all text blocks with detailed information
-    # MODIFIED LINE: Removed the 'flags' parameter for compatibility.
-    blocks = first_page.get_text("dict")["blocks"]
+Phcology,
 
-    if not blocks:
-        print(f"No text found on the first page of {pdf_path}.", file=sys.stderr)
-        return None
+Printedin Great Britain.
 
-    # --- 1. Heuristic: Find the largest font size ---
-    max_font_size = 0
-    # First pass to find the maximum font size on the page
-    for block in blocks:
-        if "lines" in block:
-            for line in block["lines"]:
-                if "spans" in line:
-                    for span in line["spans"]:
-                        if span["size"] > max_font_size:
-                            max_font_size = span["size"]
+Vol. 42, Suppl.,pp. SE!?-S!X,
+1991.
 
-    if max_font_size == 0:
-        print("Could not determine font sizes on the first page.", file=sys.stderr)
-        return None
+cm-29sy91 s3.00 + 0.00
+@ 1991. Pergamon Press plc
 
-    # --- 2. Filter candidates based on font size and position ---
-    title_candidates = []
-    # A small tolerance for font size variations
-    font_size_tolerance = max_font_size * 0.05
-    # Consider text in the top 40% of the page as potential titles
-    upper_page_boundary = page_height * 0.40
+FORMATION OF MOLECULAR IODINE DURING
+OXIDATION OF IODIDE BY THE PEROXIDASE/H202
+SYSTEM
+IMPLICATIONS
 
-    for block in blocks:
-        if "lines" in block:
-            for line in block["lines"]:
-                # Check vertical position of the line
-                line_y_position = line["bbox"][1]
-                if line_y_position > upper_page_boundary:
-                    continue
+FOR ANTITHYROID
 
-                if "spans" in line:
-                    for span in line["spans"]:
-                        # Check if font size is close to the maximum
-                        if abs(span["size"] - max_font_size) <= font_size_tolerance:
-                            # Join all text in the line, as it's a title candidate
-                            full_line_text = "".join(s["text"] for s in line["spans"]).strip()
-                            title_candidates.append({
-                                "text": full_line_text,
-                                "y": line["bbox"][1]  # Use y-coordinate for sorting
-                            })
-                            break  # Move to the next line once a candidate is found
+THERAPY
 
-    if not title_candidates:
-        print("No title candidates found based on font size and position.", file=sys.stderr)
-        return None
+JEAN-FRANCOK LAGORCE, JEAN-CLAUDE THOMES, GILBERT CATANZANO,
+JACQUES BUXERAUD, MICHBLE RABY and CLAUDE RABY*
+Department
 
-    # --- 3. Group and assemble multi-line titles ---
-    # Sort candidates vertically
-    title_candidates.sort(key=lambda item: item['y'])
+of Chemical Pharmacy, Faculty of Pharmacy, 87025 Limoges, France
+(Received 19 September 1990, accepted 19 August 1991)
 
-    # Remove duplicate lines that might have been added
-    unique_titles = []
-    seen_text = set()
-    for item in title_candidates:
-        if item['text'] not in seen_text:
-            unique_titles.append(item['text'])
-            seen_text.add(item['text'])
+Abstract-The
 
-    # Join the text of the sorted candidates
-    full_title = " ".join(unique_titles)
+first step in the biogenesis of thyroid hormones is the oxidation of iodides taken up by
+""",
+            extractions=[
+                lx.data.Extraction(
+                    extraction_class="title",
+                    extraction_text="Formation of Molecular Iodine During Oxidation of Iodide by the Peroxidase/H2O2 System. Implications for Antithyroid Therapy",
+                )
+            ],
+        ),
+        lx.data.ExampleData(
+            text="""
+HUMAN MUTATION Mutation in Brief 31: E1304–E1318 (2010) Online
 
-    # Simple clean up
-    full_title = " ".join(full_title.split())
+MUTATION IN BRIEF
 
-    return full_title if full_title else None
+HUMAN MUTATION
+OFFICIAL JOURNAL
+
+Compound Heterozygosity for a Novel Hemizygous
+Missense Mutation and a Partial Deletion Affecting
+the Catalytic Core of the H2O2-generating Enzyme
+DUOX2 Associated with Transient Congenital
+Hypothyroidism
+
+www.hgvs.org
+
+Candice Hoste*, Sabrina Rigutto*, Guy Van Vliet‡, Françoise Miot*, and Xavier De Deken*
+*IRIBHM, Université Libre de Bruxelles (U.L.B.), Campus Erasme, 1070 Brussels, Belgium; ‡Endocrinology Service and
+Research Center, Sainte-Justine Hospital, and Department of Pediatrics, Université de Montréal, 3175 Côte Ste-Catherine,
+Montreal H3T 1C5 QC, Canada
+*Correspondence to Xavier De Deken, IRIBHM, Université Libre de Bruxelles (U.L.B.), Campus Erasme, Bat.C., 808 route de
+Lennik, B-1070 Bruxelles, Belgium. Fax: +32-2-5554655, Tel: +32-2-5554152. E-Mail: xdedeken@ulb.ac.be
+Grant Sponsor Information: See Acknowledgments
+Communicated by Jurgen Horst
+
+ABSTRACT: Dual oxidases (DUOX) 1 and 2 are components of the thyroid H2O2-generating system.
+""",
+            extractions=[
+                lx.data.Extraction(
+                    extraction_class="title",
+                    extraction_text="Compound Heterozygosity for a Novel Hemizygous Missense Mutation and a Partial Deletion Affecting the Catalytic Core of the H2O2-generating Enzyme DUOX2 Associated with Transient Congenital Hypothyroidism",
+                )
+            ],
+        ),
+    ]
+
+    extracted_title = None
+    try:
+        result = lx.extract(
+            text_or_documents=text,
+            prompt_description=prompt,
+            examples=examples
+        )
+        if result and result.extractions:
+            extracted_title = result.extractions[0].extraction_text
+    except Exception as e:
+        print(f"Error during langextract title extraction for {pdf_path}: {e}", file=sys.stderr)
+
+    return extracted_title
 
 
 def _find_best_match(title_to_match: str, metadata_set: list[dict], similarity_threshold: float) -> dict | None:
@@ -144,32 +172,29 @@ def _find_best_match(title_to_match: str, metadata_set: list[dict], similarity_t
 def match_pdf_to_metadata(pdf_path: str, metadata_set: list[dict]) -> dict | None:
     """
     Matches a PDF file to a metadata entry based on extracted title (using fuzzy matching).
-    First, it tries the title from PDF metadata/text. If that fails, it tries the filename.
+    It tries matching in the following order: PDF metadata '/Title', filename, and finally text content.
 
     :param pdf_path: Path to the PDF file.
     :param metadata_set: List of metadata dictionaries, each with 'title': str.
     :return: Matching metadata dict or None if no match.
     """
     try:
-        # --- 1. Attempt to match using title from PDF metadata or text content ---
-        extracted_title = ''
+        # --- 1. Attempt to match using /Title metadata field ---
+        metadata_title = ''
         try:
             with open(pdf_path, 'rb') as file:
                 reader = PyPDF2.PdfReader(file)
-                extracted_title = reader.metadata.get('/Title', '')
+                metadata_title = reader.metadata.get('/Title', '')
         except Exception:
             pass  # PyPDF2 might fail on some PDFs, that's ok.
 
-        if not extracted_title:
-            extracted_title = get_title_from_text(pdf_path)
-
-        if extracted_title:
-            match = _find_best_match(extracted_title, metadata_set, 0.9)
+        if metadata_title:
+            match = _find_best_match(metadata_title, metadata_set, 0.9)
             if match:
+                logging.info(f"Matched PDF '{os.path.basename(pdf_path)}' using '/Title' metadata field.")
                 return match
 
-        # --- 2. Fallback: attempt to match using the PDF filename ---
-        import os
+        # --- 2. Attempt to match using the PDF filename ---
         basename = os.path.basename(pdf_path)
         filename_title = os.path.splitext(basename)[0]
         # Replace common separators with spaces for better matching
@@ -177,9 +202,19 @@ def match_pdf_to_metadata(pdf_path: str, metadata_set: list[dict]) -> dict | Non
         
         match = _find_best_match(filename_title, metadata_set, 0.6)
         if match:
+            logging.info(f"Matched PDF '{os.path.basename(pdf_path)}' using filename.")
             return match
+
+        # --- 3. Fallback: attempt to match using text content (langextract) ---
+        content_title = get_title_from_text(pdf_path)
+        if content_title:
+            match = _find_best_match(content_title, metadata_set, 0.9)
+            if match:
+                logging.info(f"Matched PDF '{os.path.basename(pdf_path)}' using text content (langextract).")
+                return match
 
         return None
 
-    except Exception:
+    except Exception as e:
+        logging.error(f"An unexpected error occurred in match_pdf_to_metadata for {pdf_path}: {e}")
         return None
