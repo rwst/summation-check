@@ -141,6 +141,7 @@ class QCWindow(QWidget):
         self.timer = QTimer(self)
         self.elapsed_time = 0
         self.is_critique_running = False
+        self.debug_mode = False
 
         # --- Main Layout ---
         layout = QHBoxLayout(self)
@@ -211,6 +212,9 @@ class QCWindow(QWidget):
         self.list_pathways.itemClicked.connect(self.on_pathway_list_item_clicked)
         self.list_events.itemClicked.connect(self.on_event_list_item_clicked)
         self.list2.itemClicked.connect(self.on_right_list_item_clicked)
+
+    def set_debug_mode(self, enabled):
+        self.debug_mode = enabled
 
     def on_right_list_item_clicked(self, item):
         """
@@ -389,6 +393,7 @@ class MainAppWindow(QMainWindow):
         self.controller = None
         self.setWindowTitle("Summation Check Tool")
         self.setGeometry(100, 100, 1000, 700)  # Increased size for split view
+        self.debug_mode = False
 
         self.qc_window = None # To hold a reference to the QC window
 
@@ -494,6 +499,9 @@ class MainAppWindow(QMainWindow):
         self.right_layout.addWidget(self.status_display)
         self.right_layout.addWidget(self.start_qc_button)
 
+    def set_debug_mode(self, enabled):
+        self.debug_mode = enabled
+
     def set_controller(self, controller):
         self.controller = controller
 
@@ -578,6 +586,9 @@ class MainAppWindow(QMainWindow):
 
     def update_status_display(self, message):
         """Updates the status bar and the main status log display."""
+        # Filter out DEBUG messages if not in debug mode
+        if " - DEBUG - " in message and not self.debug_mode:
+            return
         self.status_bar.showMessage(message)
         self.status_display.append(message)
         # Automatically scroll to the bottom

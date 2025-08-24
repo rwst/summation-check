@@ -29,7 +29,7 @@ class QLogHandler(QObject, logging.Handler):
         msg = self.format(record)
         self.log_emitted.emit(msg)
 
-def setup_logger():
+def setup_logger(debug=False):
     """
     Sets up the global logger for the application.
     """
@@ -39,7 +39,8 @@ def setup_logger():
 
     # Get the root logger
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    log_level = logging.DEBUG if debug else logging.INFO
+    logger.setLevel(log_level)
 
     # Prevent duplicate handlers if this function is called multiple times
     if logger.hasHandlers():
@@ -48,11 +49,11 @@ def setup_logger():
     # Create handlers
     # File handler for writing logs to a file
     file_handler = logging.FileHandler(LOG_FILE)
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(log_level)
 
     # Console handler for printing logs to the console
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(log_level)
 
     # Create formatter and add it to the handlers
     formatter = logging.Formatter(

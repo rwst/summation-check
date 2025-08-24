@@ -9,6 +9,7 @@ and starts the event loop.
 import sys
 import logging
 import atexit
+import argparse
 from PyQt5.QtWidgets import QApplication
 from ui_view import MainAppWindow
 from controller import Controller
@@ -19,8 +20,17 @@ def main():
     """
     Initializes and runs the application.
     """
+    # --- Argument Parsing ---
+    parser = argparse.ArgumentParser(description="Summation Check Application")
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Enable debug level logging in the main window.'
+    )
+    args = parser.parse_args()
+
     # Set up logging
-    logger = setup_logger()
+    logger = setup_logger(debug=args.debug)
     logger.info("Application starting...")
 
     # --- Prevent logging's atexit hook from running ---
@@ -40,6 +50,7 @@ def main():
 
     # Create the main window and controller
     main_window = MainAppWindow()
+    main_window.set_debug_mode(args.debug)
     controller = Controller(main_window, log_handler)
     main_window.set_controller(controller)
 
