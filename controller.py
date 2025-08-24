@@ -172,17 +172,14 @@ class Controller(QObject):
                     os.rename(file_path, new_filepath)
                     
                     logging.info(f"PDF '{original_filename}' matched with metadata: '{match['title']}' and renamed to '{new_filename}'")
-                    self.status_updated.emit(f"PDF '{original_filename}' matched with: '{match['title']}' and renamed.")
                 else:
                     logging.info(f"PDF '{os.path.basename(file_path)}' matched with metadata: '{match['title']}' (no PMID for renaming)")
-                    self.status_updated.emit(f"PDF '{os.path.basename(file_path)}' matched with: '{match['title']}'")
             except (OSError, Exception) as e:
                 error_message = f"Error renaming file {file_path}: {e}"
                 logging.error(error_message)
                 self.error_occurred.emit(error_message)
         else:
             logging.info(f"No match found for PDF '{os.path.basename(file_path)}'")
-            self.status_updated.emit(f"No match for PDF: '{os.path.basename(file_path)}'")
 
     @pyqtSlot(str)
     def on_project_file_changed(self, file_path):
@@ -351,17 +348,14 @@ class Controller(QObject):
                             os.rename(pdf_path, new_filepath)
                             
                             logging.info(f"PDF '{filename}' matched with metadata: '{match['title']}' and renamed to '{new_filename}'")
-                            self.status_updated.emit(f"PDF '{filename}' matched with: '{match['title']}' and renamed.")
                         else:
                             logging.info(f"PDF '{filename}' matched with metadata: '{match['title']}' (no PMID for renaming)")
-                            self.status_updated.emit(f"PDF '{filename}' matched with: '{match['title']}'")
                     except (OSError, Exception) as e:
                         error_message = f"Error renaming file {pdf_path}: {e}"
                         logging.error(error_message)
                         self.error_occurred.emit(error_message)
                 else:
                     logging.info(f"No match found for PDF '{filename}'")
-                    self.status_updated.emit(f"No match for PDF: '{filename}'")
 
     def start_qc_process(self):
         """
