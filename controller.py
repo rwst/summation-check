@@ -163,33 +163,39 @@ class Controller(QObject):
             self.pmid_hint = None
 
         if match:
-            try:
-                # --- Delete .title file ---
-                pdf_basename = os.path.splitext(os.path.basename(file_path))[0]
-                title_file_path = os.path.join(os.path.dirname(file_path), f"{pdf_basename}.title")
-                if os.path.exists(title_file_path):
-                    try:
-                        os.remove(title_file_path)
-                        logging.info(f"Removed cache file: {os.path.basename(title_file_path)}")
-                    except OSError as e:
-                        logging.error(f"Error removing cache file {title_file_path}: {e}")
-
-                if 'pubMedIdentifier' in match and match['pubMedIdentifier']:
-                    original_filename = os.path.basename(file_path)
-                    new_filename = f"PMID:{match['pubMedIdentifier']}-{original_filename}"
-                    new_filepath = os.path.join(os.path.dirname(file_path), new_filename)
-                    
-                    os.rename(file_path, new_filepath)
-                    
-                    logging.info(f"PDF '{original_filename}' matched with metadata: '{match['title']}' and renamed to '{new_filename}'")
-                else:
-                    logging.info(f"PDF '{os.path.basename(file_path)}' matched with metadata: '{match['title']}' (no PMID for renaming)")
-            except (OSError, Exception) as e:
-                error_message = f"Error renaming file {file_path}: {e}"
-                logging.error(error_message)
-                self.error_occurred.emit(error_message)
+            self._handle_successful_match(file_path, match)
         else:
             logging.info(f"No match found for PDF '{os.path.basename(file_path)}'")
+
+    def _handle_successful_match(self, pdf_path, match):
+        """
+        Handles the consequences of a successful PDF match: renaming and cache cleanup.
+        """
+        try:
+            # --- Delete .title file ---
+            pdf_basename = os.path.splitext(os.path.basename(pdf_path))[0]
+            title_file_path = os.path.join(os.path.dirname(pdf_path), f"{pdf_basename}.title")
+            if os.path.exists(title_file_path):
+                try:
+                    os.remove(title_file_path)
+                    logging.info(f"Removed cache file: {os.path.basename(title_file_path)}")
+                except OSError as e:
+                    logging.error(f"Error removing cache file {title_file_path}: {e}")
+
+            if 'pubMedIdentifier' in match and match['pubMedIdentifier']:
+                original_filename = os.path.basename(pdf_path)
+                new_filename = f"PMID:{match['pubMedIdentifier']}-{original_filename}"
+                new_filepath = os.path.join(os.path.dirname(pdf_path), new_filename)
+                
+                os.rename(pdf_path, new_filepath)
+                
+                logging.info(f"PDF '{original_filename}' matched with metadata: '{match['title']}' and renamed to '{new_filename}'")
+            else:
+                logging.info(f"PDF '{os.path.basename(pdf_path)}' matched with metadata: '{match['title']}' (no PMID for renaming)")
+        except (OSError, Exception) as e:
+            error_message = f"Error processing file {pdf_path}: {e}"
+            logging.error(error_message)
+            self.error_occurred.emit(error_message)
 
     @pyqtSlot(str)
     def on_project_file_changed(self, file_path):
@@ -350,30 +356,7 @@ class Controller(QObject):
                 pdf_path = os.path.join(pdf_folder, filename)
                 match = match_pdf_to_metadata(pdf_path, self.metadata_set)
                 if match:
-                    try:
-                        # --- Delete .title file ---
-                        pdf_basename = os.path.splitext(os.path.basename(pdf_path))[0]
-                        title_file_path = os.path.join(os.path.dirname(pdf_path), f"{pdf_basename}.title")
-                        if os.path.exists(title_file_path):
-                            try:
-                                os.remove(title_file_path)
-                                logging.info(f"Removed cache file: {os.path.basename(title_file_path)}")
-                            except OSError as e:
-                                logging.error(f"Error removing cache file {title_file_path}: {e}")
-
-                        if 'pubMedIdentifier' in match and match['pubMedIdentifier']:
-                            new_filename = f"PMID:{match['pubMedIdentifier']}-{filename}"
-                            new_filepath = os.path.join(pdf_folder, new_filename)
-                            
-                            os.rename(pdf_path, new_filepath)
-                            
-                            logging.info(f"PDF '{filename}' matched with metadata: '{match['title']}' and renamed to '{new_filename}'")
-                        else:
-                            logging.info(f"PDF '{filename}' matched with metadata: '{match['title']}' (no PMID for renaming)")
-                    except (OSError, Exception) as e:
-                        error_message = f"Error renaming file {pdf_path}: {e}"
-                        logging.error(error_message)
-                        self.error_occurred.emit(error_message)
+                    self._handle_successful_match(pdf_path, match)
                 else:
                     logging.info(f"No match found for PDF '{filename}'")
 
