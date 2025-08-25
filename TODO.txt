@@ -1,2 +1,3 @@
 * use Gemini to get txt for undigitized PDF
+* store critiques
 
