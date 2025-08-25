@@ -164,6 +164,16 @@ class Controller(QObject):
 
         if match:
             try:
+                # --- Delete .title file ---
+                pdf_basename = os.path.splitext(os.path.basename(file_path))[0]
+                title_file_path = os.path.join(os.path.dirname(file_path), f"{pdf_basename}.title")
+                if os.path.exists(title_file_path):
+                    try:
+                        os.remove(title_file_path)
+                        logging.info(f"Removed cache file: {os.path.basename(title_file_path)}")
+                    except OSError as e:
+                        logging.error(f"Error removing cache file {title_file_path}: {e}")
+
                 if 'pubMedIdentifier' in match and match['pubMedIdentifier']:
                     original_filename = os.path.basename(file_path)
                     new_filename = f"PMID:{match['pubMedIdentifier']}-{original_filename}"
@@ -341,6 +351,16 @@ class Controller(QObject):
                 match = match_pdf_to_metadata(pdf_path, self.metadata_set)
                 if match:
                     try:
+                        # --- Delete .title file ---
+                        pdf_basename = os.path.splitext(os.path.basename(pdf_path))[0]
+                        title_file_path = os.path.join(os.path.dirname(pdf_path), f"{pdf_basename}.title")
+                        if os.path.exists(title_file_path):
+                            try:
+                                os.remove(title_file_path)
+                                logging.info(f"Removed cache file: {os.path.basename(title_file_path)}")
+                            except OSError as e:
+                                logging.error(f"Error removing cache file {title_file_path}: {e}")
+
                         if 'pubMedIdentifier' in match and match['pubMedIdentifier']:
                             new_filename = f"PMID:{match['pubMedIdentifier']}-{filename}"
                             new_filepath = os.path.join(pdf_folder, new_filename)
