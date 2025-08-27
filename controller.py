@@ -160,7 +160,6 @@ class Controller(QObject):
         if not match and self.pmid_hint:
             match = {'pubMedIdentifier': self.pmid_hint, 'title': f'Manually Associated with PMID:{self.pmid_hint}'}
             self.status_updated.emit(f"Associating PDF with hint PMID: {match['pubMedIdentifier']}")
-            self.pmid_hint = None
 
         if match:
             self._handle_successful_match(file_path, match)
@@ -190,6 +189,11 @@ class Controller(QObject):
                 os.rename(pdf_path, new_filepath)
                 
                 logging.info(f"PDF '{original_filename}' matched with metadata: '{match['title']}' and renamed to '{new_filename}'")
+
+                # After a successful rename, the "next PDF" has been handled. Clear the hint.
+                if self.pmid_hint:
+                    self.status_updated.emit(f"Cleared PMID hint ({self.pmid_hint}) after successful match.")
+                    self.pmid_hint = None
             else:
                 logging.info(f"PDF '{os.path.basename(pdf_path)}' matched with metadata: '{match['title']}' (no PMID for renaming)")
         except (OSError, Exception) as e:
