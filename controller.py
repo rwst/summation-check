@@ -154,12 +154,13 @@ class Controller(QObject):
         if not self.metadata_set:
             self.status_updated.emit("No metadata loaded, cannot process new PDF.")
             return
-        
-        match = match_pdf_to_metadata(file_path, self.metadata_set)
 
-        if not match and self.pmid_hint:
+        match = None
+        if self.pmid_hint:
             match = {'pubMedIdentifier': self.pmid_hint, 'title': f'Manually Associated with PMID:{self.pmid_hint}'}
-            self.status_updated.emit(f"Associating PDF with hint PMID: {match['pubMedIdentifier']}")
+            self.status_updated.emit(f"Using hint to associate PDF with PMID: {self.pmid_hint}")
+        else:
+            match = match_pdf_to_metadata(file_path, self.metadata_set)
 
         if match:
             self._handle_successful_match(file_path, match)
