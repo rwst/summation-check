@@ -194,9 +194,16 @@ def _find_best_match(title_to_match: str, metadata_set: list[dict], similarity_t
 
 def match_pdf_to_metadata(pdf_path: str, metadata_set: list[dict]) -> dict | None:
     """
-    Matches a PDF file to a metadata entry based on extracted title (using fuzzy matching).
-    It tries matching in the following order: PDF metadata '/Title', filename, cached title, 
-    and finally text content.
+    Matches a PDF file to a metadata entry.
+
+    The matching logic is as follows:
+    1. Read the '/Title' metadata from the PDF.
+    2. If the title is 8 characters or longer, it is used exclusively for matching.
+       If it matches, the metadata is returned. If not, the process stops, and None is returned.
+    3. If the title is shorter than 8 characters or absent, the logic proceeds to:
+       a. Attempt to match using the PDF's filename.
+       b. If the filename doesn't match, attempt to match using the text content,
+          which may involve caching and using the 'langextract' library.
 
     :param pdf_path: Path to the PDF file.
     :param metadata_set: List of metadata dictionaries, each with 'title': str.
@@ -208,20 +215,28 @@ def match_pdf_to_metadata(pdf_path: str, metadata_set: list[dict]) -> dict | Non
         try:
             with open(pdf_path, 'rb') as file:
                 reader = PyPDF2.PdfReader(file)
-                metadata_title = reader.metadata.get('/Title', '')
+                raw_title = reader.metadata.get('/Title', '')
+                if raw_title:
+                    metadata_title = raw_title.strip()
         except Exception:
             pass  # PyPDF2 might fail on some PDFs, that's ok.
 
-        if metadata_title:
+        # If title is substantial, use it exclusively.
+        if len(metadata_title) >= 8:
+            logging.info(f"PDF '{os.path.basename(pdf_path)}' has a /Title field >= 8 chars. Using it exclusively for matching.")
             match = _find_best_match(metadata_title, metadata_set, 0.9)
-            if match:
+            if not match:
+                logging.info(f"No match found for '{os.path.basename(pdf_path)}' using its /Title. No further matching will be attempted.")
+            else:
                 logging.info(f"Matched PDF '{os.path.basename(pdf_path)}' using '/Title' metadata field.")
-                return match
+            return match
+
+        # --- If /Title is short or missing, proceed with other methods ---
+        logging.info(f"PDF '{os.path.basename(pdf_path)}' has a short or missing /Title. Proceeding with filename and content matching.")
 
         # --- 2. Attempt to match using the PDF filename ---
         basename = os.path.basename(pdf_path)
         filename_title = os.path.splitext(basename)[0]
-        # Replace common separators with spaces for better matching
         filename_title = filename_title.replace('_', ' ').replace('-', ' ')
         
         match = _find_best_match(filename_title, metadata_set, 0.6)
@@ -235,7 +250,6 @@ def match_pdf_to_metadata(pdf_path: str, metadata_set: list[dict]) -> dict | Non
         cache_file_path = os.path.join(pdf_dir, f"{pdf_basename}.title")
         content_title = None
 
-        # Check for cache file
         if os.path.exists(cache_file_path):
             try:
                 with open(cache_file_path, 'r', encoding='utf-8') as f:
@@ -251,7 +265,6 @@ def match_pdf_to_metadata(pdf_path: str, metadata_set: list[dict]) -> dict | Non
             except (IOError, OSError) as e:
                 logging.error(f"Error reading cache file {cache_file_path}: {e}")
         
-        # If no cache file, run langextract
         else:
             content_title = get_title_from_text(pdf_path)
             if content_title:
