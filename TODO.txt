@@ -1,3 +1,6 @@
+* is lit from summation included?
+* extract Methods and Results only (option?)
+* split prompt
 * use Gemini to get txt for undigitized PDF
 * store critiques
 
