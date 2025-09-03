@@ -137,6 +137,7 @@ def extract_event_data(xml_string):
             name = name_attr.get('value')
 
             summation_text = None
+            summation_id = None
             summation_attr = instance.find("attribute[@name='summation']")
             if summation_attr is not None:
                 summation_id = summation_attr.get('referTo')
@@ -144,10 +145,22 @@ def extract_event_data(xml_string):
                     summation_text = summations[summation_id]
 
             lit_ref_list = []
+            # Get literature references directly from the entity
             for lit_ref_attr in instance.findall("attribute[@name='literatureReference']"):
                 lit_ref_id = lit_ref_attr.get('referTo')
                 if lit_ref_id in literature_refs:
                     lit_ref_list.append(literature_refs[lit_ref_id])
+            
+            # Also get literature references from the summation element
+            if summation_id:
+                # Find the summation instance in the XML
+                summation_instance = root.find(f".//Summation/instance[@DB_ID='{summation_id}']")
+                if summation_instance is not None:
+                    # Get literature references from the summation
+                    for lit_ref_attr in summation_instance.findall("attribute[@name='literatureReference']"):
+                        lit_ref_id = lit_ref_attr.get('referTo')
+                        if lit_ref_id in literature_refs:
+                            lit_ref_list.append(literature_refs[lit_ref_id])
 
             has_event_refs = []
             if obj_type == 'Pathway':
