@@ -50,10 +50,25 @@ class CritiqueWindow(QDialog):
 
             # Improved Short Text
             improved_text_label = QLabel("Improved Short Text:")
+            splitter.addWidget(improved_text_label)
+
+            # Container for improved text and copy button
+            improved_container = QWidget()
+            improved_layout = QHBoxLayout(improved_container)
+            improved_layout.setContentsMargins(0, 0, 0, 0)
+
             self.improved_text = QTextEdit(result.ImprovedShortText)
             self.improved_text.setReadOnly(True)
-            splitter.addWidget(improved_text_label)
-            splitter.addWidget(self.improved_text)
+            improved_layout.addWidget(self.improved_text)
+
+            # Copy button for improved text
+            self.copy_button = QPushButton("\U0001F4CB")  # Clipboard emoji
+            self.copy_button.setToolTip("Copy to clipboard")
+            self.copy_button.setFixedWidth(32)
+            self.copy_button.clicked.connect(self.copy_improved_text)
+            improved_layout.addWidget(self.copy_button)
+
+            splitter.addWidget(improved_container)
 
         else: # Handle error case
             error_label = QLabel("An error occurred:")
@@ -68,6 +83,11 @@ class CritiqueWindow(QDialog):
         self.ok_button = QPushButton("OK")
         self.ok_button.clicked.connect(self.accept)
         layout.addWidget(self.ok_button)
+
+    def copy_improved_text(self):
+        """Copies the improved text to the clipboard."""
+        clipboard = QApplication.clipboard()
+        clipboard.setText(self.improved_text.toPlainText())
 
 
 class PromptEditorDialog(QDialog):
