@@ -76,12 +76,3 @@ class MetadataNotFoundError(Exception):
 class PdfProcessingError(Exception):
     """Custom exception for errors during PDF processing."""
     pass
-
-# Custom Exception examples
-class MetadataNotFoundError(Exception):
-    """Custom exception for when metadata cannot be found."""
-    pass
-
-class PdfProcessingError(Exception):
-    """Custom exception for errors during PDF processing."""
-    pass
