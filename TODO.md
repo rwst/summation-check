@@ -2,9 +2,6 @@
 
 ## Critical
 
-### 1. Duplicate exception class definitions (logger.py:72-87)
-`MetadataNotFoundError` and `PdfProcessingError` are defined twice. The second definitions (lines 81-87) are exact duplicates and should be removed.
-
 ### 2. Blocking sleep calls in file monitor (file_monitor.py:123, 169)
 `time.sleep(1)` and `time.sleep(0.5)` block the watchdog observer thread, which can cause missed events during high file activity. Should use a separate worker thread or queue-based processing.
 
@@ -28,9 +25,6 @@ Should standardize on logging throughout.
 - The `critique_thread` and `critique_worker` attributes are accessed from multiple threads without synchronization
 - If user rapidly clicks "Get AI Critique" before first request completes, behavior is undefined
 - The button is disabled but `is_critique_running` flag is set after thread setup, not before
-
-### 7. Error text sent to AI (prep_ai_critique.py:117-131)
-When PDF extraction fails, the error message string is stored as the PDF text and may be sent to the Gemini API as document content.
 
 ## Medium Priority
 
