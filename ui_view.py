@@ -459,6 +459,12 @@ class MainAppWindow(QMainWindow):
         self.gemini_api_key_button.setToolTip("GEMINI_API_KEY")
         self.gemini_api_key_button.clicked.connect(self.on_gemini_api_key_clicked)
 
+        # Critique Model
+        self.critique_model_label = QLabel("critique_model")
+        self.critique_model_button = WordWrapButton(config.get("critique_model", "gemini-2.5-pro"))
+        self.critique_model_button.setToolTip("Gemini model used for AI critique")
+        self.critique_model_button.clicked.connect(self.on_critique_model_clicked)
+
         # --- UI Elements (Right Panel) ---
         self.status_label = QLabel("Status Log:")
         self.status_display = QTextEdit()
@@ -493,6 +499,9 @@ class MainAppWindow(QMainWindow):
         self.left_layout.addSpacing(20)
         self.left_layout.addWidget(self.gemini_api_key_label)
         self.left_layout.addWidget(self.gemini_api_key_button)
+        self.left_layout.addSpacing(20)
+        self.left_layout.addWidget(self.critique_model_label)
+        self.left_layout.addWidget(self.critique_model_button)
 
         # --- Layout Management (Right) ---
         self.right_layout.addWidget(self.status_label)
@@ -577,6 +586,19 @@ class MainAppWindow(QMainWindow):
             config["GEMINI_API_KEY"] = new_key
             self._save_config()
             self.update_status_display("GEMINI_API_KEY updated.")
+
+    def on_critique_model_clicked(self):
+        """Handles clicking the critique_model button."""
+        current_model = config.get("critique_model", "gemini-2.5-pro")
+        new_model, ok = QInputDialog.getText(self, "Set Critique Model",
+                                             "Enter the Gemini model name:",
+                                             QLineEdit.Normal,
+                                             current_model)
+        if ok and new_model != current_model:
+            config["critique_model"] = new_model
+            self._save_config()
+            self.critique_model_button.setText(new_model)
+            self.update_status_display(f"critique_model updated to: {new_model}")
 
     def on_file_op_changed(self, button):
         """Handles the change in file operation radio buttons."""

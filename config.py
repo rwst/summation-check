@@ -43,7 +43,8 @@ DEFAULT_CONFIG = {
     "project_file_path": "",
     "dedicated_pdf_folder": "",
     "file_operation": "Move",  # "Move" or "Copy"
-    "GEMINI_API_KEY": ""
+    "GEMINI_API_KEY": "",
+    "critique_model": "gemini-2.5-pro"
 }
 
 def load_config():

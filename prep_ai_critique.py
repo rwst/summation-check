@@ -17,7 +17,7 @@ class CritiqueResult(BaseModel):
     ImprovedShortText: str
 
 
-def get_ai_critique(summary_text, pdf_texts, api_key):
+def get_ai_critique(summary_text, pdf_texts, api_key, model="gemini-2.5-pro"):
     """
     Calls the Gemini API with the provided summary and PDF texts to get a critique.
 
@@ -25,6 +25,7 @@ def get_ai_critique(summary_text, pdf_texts, api_key):
         summary_text (str): The summary text to be critiqued.
         pdf_texts (dict): A dictionary of PDF texts with PMID as key.
         api_key (str): The Gemini API key.
+        model (str): The Gemini model to use for the critique.
 
     Returns:
         CritiqueResult: A Pydantic model object with the critique, or an error string.
@@ -49,7 +50,7 @@ You are given the concatenated text of one or more scientific articles, and in a
         """
 
         response = client.models.generate_content(
-            model="gemini-2.5-pro",
+            model=model,
             contents=[
                 summary_text,
                 all_papers_content,
