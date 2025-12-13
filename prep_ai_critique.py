@@ -40,6 +40,11 @@ def get_ai_critique(summary_text, pdf_texts, api_key, model="gemini-2.5-pro", pr
     if not prompt:
         return "Error: No prompt provided for critique."
 
+    # Check for failed extractions (None values)
+    failed_pmids = [pmid for pmid, text in pdf_texts.items() if text is None]
+    if failed_pmids:
+        return f"Error: PDF extraction failed for PMIDs: {', '.join(failed_pmids)}"
+
     try:
         client = genai.Client(api_key=api_key)
 
@@ -114,9 +119,8 @@ def get_pdf_texts_for_pmids(qc_list_items, pdf_folder):
                             text = f.read()
                         logger.info(f"Successfully extracted text from {os.path.basename(txt_path)} for PMID {pmid}.")
                     except Exception as e:
-                        error_message = f"Error reading TXT file {os.path.basename(txt_path)} for PMID {pmid}: {e}"
-                        logger.error(error_message)
-                        text = error_message
+                        logger.error(f"Error reading TXT file {os.path.basename(txt_path)} for PMID {pmid}: {e}")
+                        text = None
                 # Fallback to PDF extraction
                 else:
                     try:
@@ -126,16 +130,14 @@ def get_pdf_texts_for_pmids(qc_list_items, pdf_folder):
                             logger.info(f"Successfully extracted text from {filename} for PMID {pmid}.")
                     except Exception as e:
                         # Handle cases where PDF is corrupt or can't be read
-                        error_message = f"Error reading PDF {filename} for PMID {pmid}: {e}"
-                        logger.error(error_message)
-                        text = error_message
+                        logger.error(f"Error reading PDF {filename} for PMID {pmid}: {e}")
+                        text = None
                 
                 pmid_texts[pmid] = text
                 found_pdf = True
                 break
         if not found_pdf:
-            not_found_message = f"PDF file not found for PMID {pmid}."
-            logger.warning(not_found_message)
-            pmid_texts[pmid] = not_found_message
+            logger.warning(f"PDF file not found for PMID {pmid}.")
+            pmid_texts[pmid] = None
 
     return pmid_texts
