@@ -184,6 +184,7 @@ class QCWindow(QWidget):
     A window for quality control, showing two lists side-by-side.
     """
     pmid_hint_set = pyqtSignal(str)
+    pdf_association_requested = pyqtSignal(str, str)  # (pmid, file_path)
 
     def __init__(self):
         super().__init__()
@@ -299,23 +300,7 @@ class QCWindow(QWidget):
                     "PDF Files (*.pdf)"
                 )
                 if file_path:
-                    try:
-                        directory = os.path.dirname(file_path)
-                        original_filename = os.path.basename(file_path)
-                        new_filename = f"PMID:{pmid}-{original_filename}"
-                        new_filepath = os.path.join(directory, new_filename)
-                        
-                        os.rename(file_path, new_filepath)
-                        
-                        # Refresh the view to show the change
-                        self.refresh_selected_item()
-                    except OSError as e:
-                        error_dialog = QMessageBox()
-                        error_dialog.setIcon(QMessageBox.Critical)
-                        error_dialog.setText("Error Renaming File")
-                        error_dialog.setInformativeText(f"Could not rename the file.\n\nDetails: {e}")
-                        error_dialog.setWindowTitle("Error")
-                        error_dialog.exec_()
+                    self.pdf_association_requested.emit(pmid, file_path)
     def update_data(self, project_data):
         """
         Populates the left list with project data and stores it.
@@ -605,6 +590,7 @@ class MainAppWindow(QMainWindow):
             self.qc_window = QCWindow()
             if self.controller:
                 self.qc_window.pmid_hint_set.connect(self.controller.set_pmid_hint)
+                self.qc_window.pdf_association_requested.connect(self.controller.on_pdf_association_requested)
                 self.qc_window.ai_critique_button.clicked.connect(
                     self.controller.on_ai_critique_clicked)
                 self.qc_window.timer.timeout.connect(self.controller.update_timer)

@@ -147,6 +147,29 @@ class Controller(QObject):
         self.pmid_hint = pmid
         self.status_updated.emit(f"PMID hint set to {pmid}. The next unmatched PDF will be associated with this PMID.")
 
+    @pyqtSlot(str, str)
+    def on_pdf_association_requested(self, pmid, file_path):
+        """
+        Handles PDF association request from QC window.
+        Renames the selected PDF file with PMID prefix.
+        """
+        try:
+            directory = os.path.dirname(file_path)
+            original_filename = os.path.basename(file_path)
+            new_filename = f"PMID:{pmid}-{original_filename}"
+            new_filepath = os.path.join(directory, new_filename)
+
+            os.rename(file_path, new_filepath)
+            logging.info(f"Associated PDF '{original_filename}' with PMID:{pmid}")
+
+            # Refresh the QC view
+            if self.view.qc_window:
+                self.view.qc_window.refresh_selected_item()
+        except OSError as e:
+            error_message = f"Could not rename the file: {e}"
+            logging.error(error_message)
+            self.show_directory_warning(error_message, title="Error Renaming File")
+
     @pyqtSlot(str)
     def on_pdf_detected(self, file_path):
         """
