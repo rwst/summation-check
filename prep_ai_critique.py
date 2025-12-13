@@ -17,7 +17,7 @@ class CritiqueResult(BaseModel):
     ImprovedShortText: str
 
 
-def get_ai_critique(summary_text, pdf_texts, api_key, model="gemini-2.5-pro"):
+def get_ai_critique(summary_text, pdf_texts, api_key, model="gemini-2.5-pro", prompt=None):
     """
     Calls the Gemini API with the provided summary and PDF texts to get a critique.
 
@@ -26,6 +26,7 @@ def get_ai_critique(summary_text, pdf_texts, api_key, model="gemini-2.5-pro"):
         pdf_texts (dict): A dictionary of PDF texts with PMID as key.
         api_key (str): The Gemini API key.
         model (str): The Gemini model to use for the critique.
+        prompt (str): The prompt to use for the critique.
 
     Returns:
         CritiqueResult: A Pydantic model object with the critique, or an error string.
@@ -36,6 +37,8 @@ def get_ai_critique(summary_text, pdf_texts, api_key, model="gemini-2.5-pro"):
         return "Error: Summary text is empty or could not be found."
     if not pdf_texts:
         return "Error: No PDF documents were provided for critique."
+    if not prompt:
+        return "Error: No prompt provided for critique."
 
     try:
         client = genai.Client(api_key=api_key)
@@ -44,10 +47,6 @@ def get_ai_critique(summary_text, pdf_texts, api_key, model="gemini-2.5-pro"):
         all_papers_content = ""
         for pmid, text in pdf_texts.items():
             all_papers_content += f"Start of paper with PUBMED_ID: {pmid}\n\n{text}\n\n---END OF PAPER---\n"
-
-        prompt = """
-You are given the concatenated text of one or more scientific articles, and in a second file a short text file with statements, backed up by references. First, check if all references in the short text also correspond to their full text as part of the papers file. Use the delimiter ---END OF PAPER--- to split papers.txt into individual papers. Then, for every part of the short text that ends with references, check: 1. all statements must be directly supported by experimental evidence in experimental papers or statements in review papers; 2. all statements must not misrepresent or exaggerate findings from the article(s); 3. If quantitative data (numbers, percentages, p-values) is mentioned, it must match the article(s) precisely. 4. all statements must not introduce information or conclusions not present in the cited article(s). 5. assuming the short text describes a chemical reaction or process, either the papers don't mention any results about regulators of the reaction/process, or the regulators are mentioned explicitly in the statements. 6. either all results were obtained using human cell lines, or the cell lines used, with their species, are mentioned explicitly in the statements. After judging all statements with references, write out your critique and, if some rules were broken, an improved short text that only changes those statements that you criticized.
-        """
 
         response = client.models.generate_content(
             model=model,

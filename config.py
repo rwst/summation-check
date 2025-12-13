@@ -38,13 +38,16 @@ def get_resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 # Define the default structure of the configuration
+DEFAULT_CRITIQUE_PROMPT = """You are given the concatenated text of one or more scientific articles, and in a second file a short text file with statements, backed up by references. First, check if all references in the short text also correspond to their full text as part of the papers file. Use the delimiter ---END OF PAPER--- to split papers.txt into individual papers. Then, for every part of the short text that ends with references, check: 1. all statements must be directly supported by experimental evidence in experimental papers or statements in review papers; 2. all statements must not misrepresent or exaggerate findings from the article(s); 3. If quantitative data (numbers, percentages, p-values) is mentioned, it must match the article(s) precisely. 4. all statements must not introduce information or conclusions not present in the cited article(s). 5. assuming the short text describes a chemical reaction or process, either the papers don't mention any results about regulators of the reaction/process, or the regulators are mentioned explicitly in the statements. 6. either all results were obtained using human cell lines, or the cell lines used, with their species, are mentioned explicitly in the statements. After judging all statements with references, write out your critique and, if some rules were broken, an improved short text that only changes those statements that you criticized."""
+
 DEFAULT_CONFIG = {
     "downloads_folder": os.path.join(os.path.expanduser("~"), "Downloads"),
     "project_file_path": "",
     "dedicated_pdf_folder": "",
     "file_operation": "Move",  # "Move" or "Copy"
     "GEMINI_API_KEY": "",
-    "critique_model": "gemini-2.5-pro"
+    "critique_model": "gemini-2.5-pro",
+    "critique_prompt": DEFAULT_CRITIQUE_PROMPT
 }
 
 def load_config():

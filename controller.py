@@ -24,17 +24,18 @@ class AiCritiqueWorker(QObject):
     """
     finished = pyqtSignal(object)
 
-    def __init__(self, summary_text, pdf_data, api_key, model):
+    def __init__(self, summary_text, pdf_data, api_key, model, prompt):
         super().__init__()
         self.summary_text = summary_text
         self.pdf_data = pdf_data
         self.api_key = api_key
         self.model = model
+        self.prompt = prompt
 
     @pyqtSlot()
     def run(self):
         """Runs the AI critique and emits the result."""
-        result = get_ai_critique(self.summary_text, self.pdf_data, self.api_key, self.model)
+        result = get_ai_critique(self.summary_text, self.pdf_data, self.api_key, self.model, self.prompt)
         self.finished.emit(result)
 
 
@@ -305,10 +306,11 @@ class Controller(QObject):
         self.status_updated.emit("Calling Gemini API for critique...")
         api_key = config.get("GEMINI_API_KEY")
         model = config.get("critique_model", "gemini-2.5-pro")
+        prompt = config.get("critique_prompt", "")
 
         # Setup and start the thread
         self.critique_thread = QThread()
-        self.critique_worker = AiCritiqueWorker(summary_text, pdf_data, api_key, model)
+        self.critique_worker = AiCritiqueWorker(summary_text, pdf_data, api_key, model, prompt)
         self.critique_worker.moveToThread(self.critique_thread)
         
         self.critique_thread.started.connect(self.critique_worker.run)

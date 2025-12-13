@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QTextEdit, QStatusBar, QSplitter,
     QSizePolicy, QRadioButton, QButtonGroup, QMessageBox, QListWidget, QListWidgetItem,
-    QDialog, QFileDialog, QInputDialog, QLineEdit
+    QDialog, QFileDialog, QInputDialog, QLineEdit, QPlainTextEdit, QDialogButtonBox
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 from config import config, save_config
@@ -68,6 +68,39 @@ class CritiqueWindow(QDialog):
         self.ok_button = QPushButton("OK")
         self.ok_button.clicked.connect(self.accept)
         layout.addWidget(self.ok_button)
+
+
+class PromptEditorDialog(QDialog):
+    """
+    A dialog window for editing the critique prompt in a multi-line text editor.
+    """
+    def __init__(self, current_prompt, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Critique Prompt")
+        self.setGeometry(200, 200, 700, 500)
+        self.setMinimumSize(500, 300)
+
+        layout = QVBoxLayout(self)
+
+        # Label
+        label = QLabel("Edit the prompt used for AI critique:")
+        layout.addWidget(label)
+
+        # Plain text editor
+        self.text_editor = QPlainTextEdit()
+        self.text_editor.setPlainText(current_prompt)
+        self.text_editor.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+        layout.addWidget(self.text_editor)
+
+        # Button box with OK and Cancel
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def get_prompt(self):
+        """Returns the edited prompt text."""
+        return self.text_editor.toPlainText()
 
 
 class ActionPopup(QDialog):
@@ -465,6 +498,12 @@ class MainAppWindow(QMainWindow):
         self.critique_model_button.setToolTip("Gemini model used for AI critique")
         self.critique_model_button.clicked.connect(self.on_critique_model_clicked)
 
+        # Critique Prompt
+        self.critique_prompt_label = QLabel("critique_prompt")
+        self.critique_prompt_button = WordWrapButton("Edit Prompt...")
+        self.critique_prompt_button.setToolTip("Edit the prompt used for AI critique")
+        self.critique_prompt_button.clicked.connect(self.on_critique_prompt_clicked)
+
         # --- UI Elements (Right Panel) ---
         self.status_label = QLabel("Status Log:")
         self.status_display = QTextEdit()
@@ -502,6 +541,9 @@ class MainAppWindow(QMainWindow):
         self.left_layout.addSpacing(20)
         self.left_layout.addWidget(self.critique_model_label)
         self.left_layout.addWidget(self.critique_model_button)
+        self.left_layout.addSpacing(20)
+        self.left_layout.addWidget(self.critique_prompt_label)
+        self.left_layout.addWidget(self.critique_prompt_button)
 
         # --- Layout Management (Right) ---
         self.right_layout.addWidget(self.status_label)
@@ -599,6 +641,17 @@ class MainAppWindow(QMainWindow):
             self._save_config()
             self.critique_model_button.setText(new_model)
             self.update_status_display(f"critique_model updated to: {new_model}")
+
+    def on_critique_prompt_clicked(self):
+        """Handles clicking the critique_prompt button."""
+        current_prompt = config.get("critique_prompt", "")
+        dialog = PromptEditorDialog(current_prompt, self)
+        if dialog.exec_() == QDialog.Accepted:
+            new_prompt = dialog.get_prompt()
+            if new_prompt != current_prompt:
+                config["critique_prompt"] = new_prompt
+                self._save_config()
+                self.update_status_display("critique_prompt updated.")
 
     def on_file_op_changed(self, button):
         """Handles the change in file operation radio buttons."""
