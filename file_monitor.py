@@ -97,6 +97,11 @@ class EventHandler(FileSystemEventHandler, QObject):
             return
         self.last_moved[event_key] = now
 
+        # Clean up stale entries to prevent memory leak
+        stale_keys = [k for k, t in self.last_moved.items() if now - t > 2]
+        for k in stale_keys:
+            del self.last_moved[k]
+
         src_path_abs = os.path.abspath(event.src_path)
         dest_path_abs = os.path.abspath(event.dest_path)
 
