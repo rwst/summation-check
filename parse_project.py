@@ -1,4 +1,4 @@
-import sys
+import logging
 import xml.etree.ElementTree as ET
 
 
@@ -40,7 +40,7 @@ def extract_metadata_from_project_file(xml_string):
                         'pubMedIdentifier': pub_med_id
                     })
     except ET.ParseError as e:
-        print(f"Error parsing XML: {e}", file=sys.stderr)
+        logging.error(f"Error parsing XML: {e}")
         return []
 
     return references
@@ -64,7 +64,7 @@ def extract_event_data(xml_string):
     try:
         root = ET.fromstring(xml_string)
     except ET.ParseError as e:
-        print(f"Error parsing XML: {e}", file=sys.stderr)
+        logging.error(f"Error parsing XML: {e}")
         return []
 
     summations = {}

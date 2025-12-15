@@ -2,7 +2,6 @@ import PyPDF2
 import langextract as lx
 import unicodedata
 import difflib
-import sys
 import logging
 import os
 import re
@@ -32,7 +31,7 @@ def get_title_from_text(pdf_path: str) -> str | None:
                     break
             text = text[:3000]
     except Exception as e:
-        print(f"Error reading PDF {pdf_path} with PyPDF2: {e}", file=sys.stderr)
+        logging.error(f"Error reading PDF {pdf_path} with PyPDF2: {e}")
         return None
 
     if not text:
@@ -43,7 +42,7 @@ def get_title_from_text(pdf_path: str) -> str | None:
     text = re.sub(r'\s+', ' ', text).strip()
 
     if not text:
-        print(f"Extracted text from {pdf_path} is empty after cleaning. Skipping langextract.", file=sys.stderr)
+        logging.warning(f"Extracted text from {pdf_path} is empty after cleaning. Skipping langextract.")
         return None
 
     # Use langextract to get the title
@@ -147,7 +146,7 @@ ABSTRACT: Dual oxidases (DUOX) 1 and 2 are components of the thyroid H2O2-genera
         if result and result.extractions:
             extracted_title = result.extractions[0].extraction_text
     except Exception as e:
-        print(f"Error during langextract title extraction for {pdf_path}: {e}", file=sys.stderr)
+        logging.error(f"Error during langextract title extraction for {pdf_path}: {e}")
 
     # Cache the result to a .title file
     try:
