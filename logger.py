@@ -67,12 +67,3 @@ def setup_logger(debug=False):
     logger.addHandler(console_handler)
 
     return logger
-
-# Custom Exception examples
-class MetadataNotFoundError(Exception):
-    """Custom exception for when metadata cannot be found."""
-    pass
-
-class PdfProcessingError(Exception):
-    """Custom exception for errors during PDF processing."""
-    pass
