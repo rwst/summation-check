@@ -278,13 +278,34 @@ class Controller(QObject):
             self.view.qc_window.elapsed_time += 1
             self.view.qc_window.timer_label.setText(f"Requesting critique... {self.view.qc_window.elapsed_time}s")
 
+    def _reset_critique_state(self):
+        """Resets critique running state after an error."""
+        if self.view.qc_window:
+            self.view.qc_window.timer.stop()
+            self.view.qc_window.timer_label.hide()
+            self.view.qc_window.is_critique_running = False
+            self.view.qc_window.refresh_selected_item()
+
     def on_ai_critique_clicked(self):
         """
         Handles the click of the 'Get AI Critique' button by running it in a worker thread.
         """
-        self.status_updated.emit("Starting AI critique preparation...")
         if not self.view.qc_window:
             return
+
+        # Guard against re-entry
+        if self.view.qc_window.is_critique_running:
+            return
+
+        # Set running state immediately to prevent re-entry
+        self.view.qc_window.is_critique_running = True
+        self.view.qc_window.ai_critique_button.setEnabled(False)
+        self.view.qc_window.elapsed_time = 0
+        self.view.qc_window.timer_label.setText("Requesting critique... 0s")
+        self.view.qc_window.timer_label.show()
+        self.view.qc_window.timer.start(1000)
+
+        self.status_updated.emit("Starting AI critique preparation...")
 
         # 1. Get summary text for the selected event
         selected_items = self.view.qc_window.list_events.selectedItems()
@@ -292,8 +313,9 @@ class Controller(QObject):
             selected_items = self.view.qc_window.list_pathways.selectedItems()
             if not selected_items:
                 self.show_directory_warning("No item selected in any list.", title="Selection Error")
+                self._reset_critique_state()
                 return
-        
+
         db_id = selected_items[0].data(0x0100) # UserRole
         project_file = config.get("project_file_path")
         try:
@@ -301,11 +323,13 @@ class Controller(QObject):
                 xml_content = f.read()
         except (IOError, OSError) as e:
             self.show_directory_warning(f"Could not read project file: {e}", title="File Error")
+            self._reset_critique_state()
             return
-            
+
         summary_text = get_summary_for_event(xml_content, db_id)
         if not summary_text:
             self.show_directory_warning(f"No summary found for DB_ID {db_id}", title="Data Error")
+            self._reset_critique_state()
             return
 
         # 2. Get PDF texts
@@ -316,16 +340,9 @@ class Controller(QObject):
 
         if not pdf_data:
             self.show_directory_warning("No PDF data could be extracted.", title="PDF Error")
+            self._reset_critique_state()
             return
 
-        # 3. Disable button, start timer, and run API call in a worker thread
-        self.view.qc_window.is_critique_running = True
-        self.view.qc_window.ai_critique_button.setEnabled(False)
-        self.view.qc_window.elapsed_time = 0
-        self.view.qc_window.timer_label.setText("Requesting critique... 0s")
-        self.view.qc_window.timer_label.show()
-        self.view.qc_window.timer.start(1000)
-        
         self.status_updated.emit("Calling Gemini API for critique...")
         api_key = config.get("GEMINI_API_KEY")
         model = config.get("critique_model", "gemini-2.5-pro")
