@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QTextEdit, QStatusBar, QSplitter,
     QSizePolicy, QRadioButton, QButtonGroup, QMessageBox, QListWidget, QListWidgetItem,
-    QDialog, QFileDialog, QInputDialog, QLineEdit, QPlainTextEdit, QDialogButtonBox
+    QDialog, QFileDialog, QInputDialog, QLineEdit, QPlainTextEdit, QDialogButtonBox, QTabWidget
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 from config import config, save_config
@@ -90,6 +90,80 @@ class CritiqueWindow(QDialog):
         clipboard.setText(self.improved_text.toPlainText())
 
 
+class PmcDownloadResultDialog(QDialog):
+    """
+    A dialog window to display PMC download results.
+    """
+    def __init__(self, result, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("PMC Download Results")
+        self.setGeometry(200, 200, 600, 500)
+
+        layout = QVBoxLayout(self)
+
+        # Import here to avoid circular dependency
+        from pmc_download import PmcDownloadResult
+
+        if isinstance(result, PmcDownloadResult):
+            # Summary section
+            summary_text = f"Downloaded {result.successful_downloads} of {result.total_requested} PDFs successfully"
+            summary_label = QLabel(f"<b>{summary_text}</b>")
+            layout.addWidget(summary_label)
+
+            # Create tabbed text areas for different result categories
+            tab_widget = QTabWidget()
+
+            # Tab 1: Successfully Downloaded
+            if result.downloaded_files:
+                success_text = QTextEdit()
+                success_text.setReadOnly(True)
+                success_content = "\n".join(result.downloaded_files)
+                success_text.setPlainText(success_content)
+                tab_widget.addTab(success_text, f"Downloaded ({len(result.downloaded_files)})")
+
+            # Tab 2: Not Available in PMC
+            if result.not_available_in_pmc:
+                not_in_pmc_text = QTextEdit()
+                not_in_pmc_text.setReadOnly(True)
+                content = "The following PMIDs are not available in PubMed Central:\n\n"
+                content += "\n".join(result.not_available_in_pmc)
+                not_in_pmc_text.setPlainText(content)
+                tab_widget.addTab(not_in_pmc_text, f"Not in PMC ({len(result.not_available_in_pmc)})")
+
+            # Tab 3: No PDF Available
+            if result.no_pdf_available:
+                no_pdf_text = QTextEdit()
+                no_pdf_text.setReadOnly(True)
+                content = "The following PMIDs are in PMC but have no PDF in the Open Access subset:\n\n"
+                content += "\n".join(result.no_pdf_available)
+                no_pdf_text.setPlainText(content)
+                tab_widget.addTab(no_pdf_text, f"No PDF ({len(result.no_pdf_available)})")
+
+            # Tab 4: Errors
+            if result.errors:
+                errors_text = QTextEdit()
+                errors_text.setReadOnly(True)
+                content = "Errors occurred for the following PMIDs:\n\n"
+                for pmid, error_msg in result.errors.items():
+                    content += f"PMID {pmid}: {error_msg}\n"
+                errors_text.setPlainText(content)
+                tab_widget.addTab(errors_text, f"Errors ({len(result.errors)})")
+
+            layout.addWidget(tab_widget)
+
+        else:  # Handle error case
+            error_label = QLabel("An error occurred:")
+            error_text = QTextEdit(str(result))
+            error_text.setReadOnly(True)
+            layout.addWidget(error_label)
+            layout.addWidget(error_text)
+
+        # OK Button
+        ok_button = QPushButton("OK")
+        ok_button.clicked.connect(self.accept)
+        layout.addWidget(ok_button)
+
+
 class PromptEditorDialog(QDialog):
     """
     A dialog window for editing the critique prompt in a multi-line text editor.
@@ -137,6 +211,7 @@ class ActionPopup(QDialog):
         self.btn_open_browser = QPushButton("Open PMID in browser")
         self.btn_open_and_associate = QPushButton("Open PMID in browser and associate next PDF with PMID")
         self.btn_select_pdf = QPushButton("Select PDF to associate with PMID")
+        self.btn_download_from_pmc = QPushButton("Request all PDFs from PMC")
         self.btn_cancel = QPushButton("Cancel")
 
         self.btn_open_and_associate.setEnabled(True)
@@ -145,11 +220,13 @@ class ActionPopup(QDialog):
         layout.addWidget(self.btn_open_browser)
         layout.addWidget(self.btn_open_and_associate)
         layout.addWidget(self.btn_select_pdf)
+        layout.addWidget(self.btn_download_from_pmc)
         layout.addWidget(self.btn_cancel)
 
         self.btn_open_browser.clicked.connect(lambda: self.done(1))
         self.btn_open_and_associate.clicked.connect(lambda: self.done(2))
         self.btn_select_pdf.clicked.connect(lambda: self.done(3))
+        self.btn_download_from_pmc.clicked.connect(lambda: self.done(4))
         self.btn_cancel.clicked.connect(self.reject)
 
 
@@ -185,6 +262,7 @@ class QCWindow(QWidget):
     """
     pmid_hint_set = pyqtSignal(str)
     pdf_association_requested = pyqtSignal(str, str)  # (pmid, file_path)
+    pmc_download_requested = pyqtSignal()  # Download all PDFs from current list
 
     def __init__(self):
         super().__init__()
@@ -301,6 +379,8 @@ class QCWindow(QWidget):
                 )
                 if file_path:
                     self.pdf_association_requested.emit(pmid, file_path)
+            elif result == 4:  # Download all PDFs from PMC
+                self.pmc_download_requested.emit()
     def update_data(self, project_data):
         """
         Populates the left list with project data and stores it.
@@ -591,6 +671,7 @@ class MainAppWindow(QMainWindow):
             if self.controller:
                 self.qc_window.pmid_hint_set.connect(self.controller.set_pmid_hint)
                 self.qc_window.pdf_association_requested.connect(self.controller.on_pdf_association_requested)
+                self.qc_window.pmc_download_requested.connect(self.controller.on_pmc_download_requested)
                 self.qc_window.ai_critique_button.clicked.connect(
                     self.controller.on_ai_critique_clicked)
                 self.qc_window.timer.timeout.connect(self.controller.update_timer)

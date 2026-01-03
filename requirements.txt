@@ -6,3 +6,4 @@ platformdirs
 watchdog
 pymupdf
 PyPDF2
+requests>=2.31.0

@@ -47,7 +47,9 @@ DEFAULT_CONFIG = {
     "file_operation": "Move",  # "Move" or "Copy"
     "GEMINI_API_KEY": "",
     "critique_model": "gemini-2.5-pro",
-    "critique_prompt": DEFAULT_CRITIQUE_PROMPT
+    "critique_prompt": DEFAULT_CRITIQUE_PROMPT,
+    "ncbi_email": "",       # Optional: improves rate limits
+    "ncbi_api_key": ""      # Optional: enables 10 req/sec (vs 3 req/sec)
 }
 
 def load_config():
@@ -75,7 +77,14 @@ def load_config():
         if env_api_key:
             config_to_load["GEMINI_API_KEY"] = env_api_key
             print("Loaded GEMINI_API_KEY from environment variable.")
-    
+
+    # Check for NCBI_API_KEY from environment variable if not in config
+    if not config_to_load.get("ncbi_api_key"):
+        env_ncbi_key = os.environ.get("NCBI_API_KEY")
+        if env_ncbi_key:
+            config_to_load["ncbi_api_key"] = env_ncbi_key
+            print("Loaded NCBI_API_KEY from environment variable.")
+
     # Ensure all default keys are present
     for key, value in DEFAULT_CONFIG.items():
         config_to_load.setdefault(key, value)

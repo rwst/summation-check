@@ -8,7 +8,7 @@ the UI (view), the file system monitor, and data processing modules.
 import os
 import logging
 import re
-from PyQt5.QtWidgets import QFileDialog
+from PyQt5.QtWidgets import QFileDialog, QMessageBox
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QThread
 from config import config, save_config
 from file_monitor import FileMonitor
@@ -68,6 +68,8 @@ class Controller(QObject):
         self.load_initial_metadata()
         self.critique_thread = None
         self.critique_worker = None
+        self.pmc_download_thread = None
+        self.pmc_download_worker = None
 
     def connect_signals(self):
         """
@@ -380,6 +382,85 @@ class Controller(QObject):
         # Update button state by refreshing the view
         self.view.qc_window.is_critique_running = False
         self.view.qc_window.refresh_selected_item()
+
+    def on_pmc_download_requested(self):
+        """
+        Handles PMC download request by starting worker thread.
+        Downloads PDFs for ALL references in current QC window list.
+        """
+        if not self.view.qc_window:
+            return
+
+        # Extract PMIDs from literature list (list2)
+        list_widget = self.view.qc_window.list2
+        items = [list_widget.item(i).text() for i in range(list_widget.count())]
+
+        pmids = []
+        for item_text in items:
+            # Parse PMID from format: "✓ 12345678 Smith (2020): Title"
+            # PMID is the second space-separated token
+            match = re.search(r'\s(\d{6,})\s', item_text)
+            if match:
+                pmid = match.group(1)
+                # Skip if already has PDF (starts with ✓)
+                if not item_text.startswith('✓'):
+                    pmids.append(pmid)
+
+        if not pmids:
+            QMessageBox.information(
+                self.view.qc_window,
+                "No Downloads Needed",
+                "All references already have PDFs or no PMIDs found."
+            )
+            return
+
+        # Get config
+        email = config.get("ncbi_email", "")
+        api_key = config.get("ncbi_api_key", "")
+        pdf_folder = config.get("dedicated_pdf_folder")
+
+        if not pdf_folder or not os.path.isdir(pdf_folder):
+            QMessageBox.warning(
+                self.view.qc_window,
+                "Configuration Error",
+                "PDF folder not configured."
+            )
+            return
+
+        # Import here to avoid circular dependency
+        from pmc_download import PmcDownloadWorker
+
+        # Setup worker thread (similar to AI critique pattern)
+        self.pmc_download_thread = QThread()
+        self.pmc_download_worker = PmcDownloadWorker(pmids, pdf_folder, email, api_key)
+        self.pmc_download_worker.moveToThread(self.pmc_download_thread)
+
+        self.pmc_download_thread.started.connect(self.pmc_download_worker.run)
+        self.pmc_download_worker.finished.connect(self.on_pmc_download_finished)
+        self.pmc_download_worker.progress.connect(self.status_updated.emit)
+
+        self.pmc_download_thread.start()
+        self.status_updated.emit(f"Downloading {len(pmids)} PDFs from PMC...")
+
+    def on_pmc_download_finished(self, result):
+        """
+        Handles completion of PMC download worker.
+        """
+        # Clean up thread
+        self.pmc_download_thread.quit()
+        self.pmc_download_thread.wait()
+        self.pmc_download_thread = None
+        self.pmc_download_worker = None
+
+        # Show results dialog
+        from ui_view import PmcDownloadResultDialog
+        dialog = PmcDownloadResultDialog(result, self.view.qc_window)
+        dialog.exec_()
+
+        # Status update (file monitor will auto-refresh QC window)
+        self.status_updated.emit(
+            f"PMC download completed: {result.successful_downloads}/{result.total_requested} successful"
+        )
 
     def process_existing_pdfs(self):
         """
