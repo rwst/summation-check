@@ -11,8 +11,10 @@ Provides functionality to:
 import os
 import time
 import logging
+import tarfile
+import tempfile
 from threading import Lock
-from typing import Optional
+from typing import Optional, Tuple
 import xml.etree.ElementTree as ET
 from urllib.request import urlretrieve
 from urllib.error import URLError
@@ -45,7 +47,8 @@ class PmcApiClient:
     - Error handling and retries
     """
 
-    ID_CONVERTER_URL = "https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/"
+    # Updated API URLs (legacy URLs redirect but use current ones for reliability)
+    ID_CONVERTER_URL = "https://pmc.ncbi.nlm.nih.gov/tools/idconv/api/v1/articles/"
     PMC_OA_SERVICE_URL = "https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi"
 
     def __init__(self, email: Optional[str] = None, api_key: Optional[str] = None,
@@ -165,8 +168,10 @@ class PmcApiClient:
                     pmid = record.get("pmid")
                     pmcid = record.get("pmcid")
                     if pmid:
-                        result[pmid] = pmcid  # pmcid may be None if not in PMC
-                        logger.debug(f"PMID {pmid} -> PMCID {pmcid}")
+                        # Convert pmid to string since API may return int
+                        pmid_str = str(pmid)
+                        result[pmid_str] = pmcid  # pmcid may be None if not in PMC
+                        logger.debug(f"PMID {pmid_str} -> PMCID {pmcid}")
 
                 # Mark any PMIDs not in response as unavailable
                 for pmid in batch:
@@ -182,7 +187,7 @@ class PmcApiClient:
 
         return result
 
-    def get_pdf_link(self, pmcid: str) -> Optional[str]:
+    def get_pdf_link(self, pmcid: str) -> Optional[Tuple[str, str]]:
         """
         Get PDF download link for a PMCID using PMC OA Service.
 
@@ -192,7 +197,8 @@ class PmcApiClient:
             pmcid: PubMed Central ID (e.g., "PMC1234567")
 
         Returns:
-            FTP or HTTP URL to PDF, or None if not available
+            Tuple of (link_type, url) where link_type is 'pdf' or 'tgz',
+            or None if not available
         """
         params = {
             "id": pmcid,
@@ -219,16 +225,25 @@ class PmcApiClient:
                 logger.warning(f"PMC OA Service error for {pmcid}: {error.text}")
                 return None
 
-            # Find PDF link in OA package
+            # First, try to find direct PDF link
             # XML structure: <OA><records><record><link format="pdf" href="..."/>
             pdf_link = root.find(".//link[@format='pdf']")
 
             if pdf_link is not None and 'href' in pdf_link.attrib:
                 pdf_url = pdf_link.attrib['href']
-                logger.info(f"Found PDF for {pmcid}: {pdf_url}")
-                return pdf_url
+                logger.info(f"Found direct PDF link for {pmcid}: {pdf_url}")
+                return ('pdf', pdf_url)
 
-            logger.warning(f"No PDF link found for {pmcid} (may not be in OA subset)")
+            # If no direct PDF, look for tar.gz package
+            # XML structure: <OA><records><record><link format="tgz" href="..."/>
+            tgz_link = root.find(".//link[@format='tgz']")
+
+            if tgz_link is not None and 'href' in tgz_link.attrib:
+                tgz_url = tgz_link.attrib['href']
+                logger.info(f"Found tar.gz package for {pmcid}: {tgz_url}")
+                return ('tgz', tgz_url)
+
+            logger.warning(f"No PDF or tar.gz package found for {pmcid} (may not be in OA subset)")
             logger.debug(f"Full XML response: {response.text}")
             return None
 
@@ -254,6 +269,69 @@ class PmcApiClient:
             return True
         except (URLError, OSError) as e:
             logger.error(f"Failed to download PDF from {url}: {e}")
+            return False
+
+    def download_and_extract_pdf_from_tgz(self, tgz_url: str, save_path: str, pmcid: str) -> bool:
+        """
+        Download tar.gz package from PMC OA Service and extract PDF.
+
+        PMC OA packages typically contain:
+        - PMC######.nxml (article XML)
+        - PMC######.pdf (the PDF we want)
+        - other files (figures, supplements, etc.)
+
+        Args:
+            tgz_url: URL to tar.gz package
+            save_path: Local file path to save extracted PDF
+            pmcid: PMCID for logging (e.g., "PMC1234567")
+
+        Returns:
+            True on success, False on failure
+        """
+        try:
+            # Download tar.gz to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.tar.gz') as tmp_tgz:
+                tmp_tgz_path = tmp_tgz.name
+
+            self._apply_rate_limit()
+            logger.info(f"Downloading tar.gz package for {pmcid} from {tgz_url}")
+            urlretrieve(tgz_url, tmp_tgz_path)
+
+            # Extract PDF from tar.gz
+            try:
+                with tarfile.open(tmp_tgz_path, 'r:gz') as tar:
+                    # Look for PDF file in the archive
+                    pdf_member = None
+                    for member in tar.getmembers():
+                        if member.name.endswith('.pdf'):
+                            pdf_member = member
+                            logger.info(f"Found PDF in archive: {member.name}")
+                            break
+
+                    if pdf_member is None:
+                        logger.error(f"No PDF file found in tar.gz package for {pmcid}")
+                        return False
+
+                    # Extract PDF to destination
+                    with tar.extractfile(pdf_member) as pdf_file:
+                        if pdf_file is None:
+                            logger.error(f"Could not extract PDF from archive for {pmcid}")
+                            return False
+                        with open(save_path, 'wb') as output_file:
+                            output_file.write(pdf_file.read())
+
+                    logger.info(f"Successfully extracted PDF from tar.gz for {pmcid}")
+                    return True
+
+            finally:
+                # Clean up temporary tar.gz file
+                try:
+                    os.remove(tmp_tgz_path)
+                except OSError:
+                    pass
+
+        except (URLError, OSError, tarfile.TarError) as e:
+            logger.error(f"Failed to download/extract PDF from tar.gz for {pmcid}: {e}")
             return False
 
 
@@ -292,8 +370,8 @@ class PmcDownloadWorker(QObject):
 
         Flow:
         1. Convert PMIDs to PMCIDs (batched)
-        2. For each PMCID, get PDF link
-        3. Download PDFs
+        2. For each PMCID, get PDF link or tar.gz package
+        3. Download PDFs (direct or extract from tar.gz)
         4. Rename with PMID: prefix
         5. Track success/failure
         6. Emit final result
@@ -329,20 +407,31 @@ class PmcDownloadWorker(QObject):
                 result.not_available_in_pmc.append(pmid)
                 continue
 
-            # Get PDF link
-            pdf_link = client.get_pdf_link(pmcid)
+            # Get PDF link or tar.gz package link
+            link_info = client.get_pdf_link(pmcid)
 
-            if not pdf_link:
+            if not link_info:
                 logger.info(f"No PDF available for {pmid} (PMCID: {pmcid})")
                 result.no_pdf_available.append(pmid)
                 continue
 
-            # Download PDF
+            link_type, link_url = link_info
             temp_filename = f"temp_{pmid}.pdf"
             temp_path = os.path.join(self.pdf_folder, temp_filename)
 
-            if not client.download_pdf(pdf_link, temp_path):
-                result.errors[pmid] = "Failed to download PDF from server"
+            # Download based on link type
+            if link_type == 'pdf':
+                # Direct PDF download
+                if not client.download_pdf(link_url, temp_path):
+                    result.errors[pmid] = "Failed to download PDF from server"
+                    continue
+            elif link_type == 'tgz':
+                # Download and extract PDF from tar.gz package
+                if not client.download_and_extract_pdf_from_tgz(link_url, temp_path, pmcid):
+                    result.errors[pmid] = "Failed to extract PDF from tar.gz package"
+                    continue
+            else:
+                result.errors[pmid] = f"Unknown link type: {link_type}"
                 continue
 
             # Rename to PMID: prefix format
