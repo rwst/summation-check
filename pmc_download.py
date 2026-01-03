@@ -191,7 +191,7 @@ class PmcApiClient:
         """
         Get PDF download link for a PMCID using PMC OA Service.
 
-        Only works for articles in the PMC Open Access subset.
+        Only works for articles in the PMC Open Access subset (CC-licensed).
 
         Args:
             pmcid: PubMed Central ID (e.g., "PMC1234567")
@@ -222,7 +222,9 @@ class PmcApiClient:
             # Look for error element first
             error = root.find(".//error")
             if error is not None:
-                logger.warning(f"PMC OA Service error for {pmcid}: {error.text}")
+                error_code = error.get('code', '')
+                error_text = error.text or ''
+                logger.info(f"PMC OA Service error for {pmcid}: {error_text} (code: {error_code})")
                 return None
 
             # First, try to find direct PDF link
