@@ -10,6 +10,18 @@ import sys
 import logging
 import atexit
 import argparse
+import warnings
+
+# Suppress Pydantic warnings from google-generativeai package BEFORE any imports
+# These warnings occur because the SDK's internal models have fields that shadow parent attributes
+# Must be set before importing controller (which imports prep_ai_critique -> google.genai)
+warnings.filterwarnings(
+    'ignore',
+    message='Field name .* shadows an attribute in parent',
+    category=UserWarning,
+    module='pydantic._internal._fields'
+)
+
 from PyQt5.QtWidgets import QApplication
 from ui_view import MainAppWindow
 from controller import Controller
