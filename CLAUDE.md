@@ -29,7 +29,7 @@ The application follows an MVC-like pattern:
 - **config.py** - Configuration management using `platformdirs` for cross-platform config storage
 - **file_monitor.py** - Watchdog-based file system monitoring for downloads folder, PDF folder, and project file changes
 - **parse_project.py** - XML parsing for Reactome `.rtpj` project files. Extracts literature references, summations, pathways, and events
-- **match_metadata.py** - PDF-to-metadata matching using title comparison (PDF metadata, filename, or langextract-based content extraction)
+- **match_metadata.py** - PDF-to-metadata matching using title comparison (PDF metadata, filename, or cached content extraction)
 - **prep_ai_critique.py** - Gemini API integration. Extracts PDF text with PyMuPDF and sends to `gemini-3-pro-preview` with structured output (Pydantic `CritiqueResult`)
 - **logger.py** - Custom `QLogHandler` that bridges Python logging to PyQt signals for UI display
 
@@ -54,4 +54,3 @@ Config stored at platform-specific location via `platformdirs.user_config_dir("S
 ## External APIs
 
 - **Gemini API** (`google-generativeai`) - Used for AI critique with `gemini-3-pro-preview` model
-- **langextract** - Falls back to this for extracting titles from PDF content when metadata is unavailable

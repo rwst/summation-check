@@ -1,5 +1,4 @@
 import PyPDF2
-import langextract as lx
 import unicodedata
 import difflib
 import logging
@@ -15,8 +14,9 @@ def normalize_text(text: str) -> str:
 
 def get_title_from_text(pdf_path: str) -> str | None:
     """
-    Extracts the title from the PDF's text using langextract and caches the result.
+    Extracts the title from the PDF's text and caches the result.
     This is a fallback for when the '/Title' metadata field is not available.
+    (Currently disabled - returns None)
     """
     return None
 
@@ -57,8 +57,7 @@ def match_pdf_to_metadata(pdf_path: str, metadata_set: list[dict]) -> dict | Non
        If it matches, the metadata is returned. If not, the process stops, and None is returned.
     3. If the title is shorter than 8 characters or absent, the logic proceeds to:
        a. Attempt to match using the PDF's filename.
-       b. If the filename doesn't match, attempt to match using the text content,
-          which may involve caching and using the 'langextract' library.
+       b. If the filename doesn't match, attempt to match using cached text content.
 
     :param pdf_path: Path to the PDF file.
     :param metadata_set: List of metadata dictionaries, each with 'title': str.
@@ -116,7 +115,7 @@ def match_pdf_to_metadata(pdf_path: str, metadata_set: list[dict]) -> dict | Non
                         logging.info(f"Matched PDF '{os.path.basename(pdf_path)}' using cached title file.")
                         return match
                 else:
-                    logging.info(f"Empty cache file found for '{os.path.basename(pdf_path)}', skipping langextract.")
+                    logging.info(f"Empty cache file found for '{os.path.basename(pdf_path)}', skipping text extraction.")
             except (IOError, OSError) as e:
                 logging.error(f"Error reading cache file {cache_file_path}: {e}")
         
@@ -125,7 +124,7 @@ def match_pdf_to_metadata(pdf_path: str, metadata_set: list[dict]) -> dict | Non
             if content_title:
                 match = _find_best_match(content_title, metadata_set, 0.9)
                 if match:
-                    logging.info(f"Matched PDF '{os.path.basename(pdf_path)}' using text content (langextract).")
+                    logging.info(f"Matched PDF '{os.path.basename(pdf_path)}' using text content.")
                     return match
 
         return None

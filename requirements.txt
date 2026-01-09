@@ -1,5 +1,4 @@
 PyQt5
-langextract
 google-generativeai
 pydantic
 platformdirs

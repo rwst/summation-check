@@ -21,7 +21,6 @@ The application automates the tedious process of matching downloaded PDFs to the
 - **watchdog**: File system monitoring library
 - **PyMuPDF (fitz)**: PDF text extraction
 - **PyPDF2**: PDF metadata extraction
-- **langextract**: Title extraction from PDF text content
 - **google-generativeai**: Gemini API integration
 - **pydantic**: Data validation and serialization
 - **platformdirs**: Cross-platform user directory management
