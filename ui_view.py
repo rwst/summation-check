@@ -326,11 +326,17 @@ class QCWindow(QWidget):
         self.ai_critique_button = QPushButton("Get AI Critique")
         self.ai_critique_button.setEnabled(False)
         bottom_right_layout.addWidget(self.ai_critique_button)
-        
+
         self.timer_label = QLabel("")
         self.timer_label.setAlignment(Qt.AlignCenter)
         self.timer_label.hide()
         bottom_right_layout.addWidget(self.timer_label)
+
+        self.pmc_download_label = QLabel("PMC download in progress")
+        self.pmc_download_label.setAlignment(Qt.AlignCenter)
+        self.pmc_download_label.setStyleSheet("color: blue; font-weight: bold;")
+        self.pmc_download_label.hide()
+        bottom_right_layout.addWidget(self.pmc_download_label)
 
         bottom_right_layout.addStretch()
         right_splitter.addWidget(bottom_right_container)

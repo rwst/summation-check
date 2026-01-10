@@ -347,6 +347,8 @@ class PmcDownloadWorker(QObject):
 
     finished = pyqtSignal(object)  # Emits PmcDownloadResult
     progress = pyqtSignal(str)     # Emits status message strings
+    pdf_download_started = pyqtSignal()  # Emitted when PDF download starts
+    pdf_saved = pyqtSignal()  # Emitted when PDF is saved to disk
 
     def __init__(self, pmid_list: list[str], pdf_folder: str,
                  email: str = "", api_key: str = ""):
@@ -417,6 +419,9 @@ class PmcDownloadWorker(QObject):
                 result.no_pdf_available.append(pmid)
                 continue
 
+            # PDF is available, emit signal
+            self.pdf_download_started.emit()
+
             link_type, link_url = link_info
             temp_filename = f"temp_{pmid}.pdf"
             temp_path = os.path.join(self.pdf_folder, temp_filename)
@@ -452,6 +457,9 @@ class PmcDownloadWorker(QObject):
                 result.successful_downloads += 1
                 result.downloaded_files.append(final_filename)
                 logger.info(f"Successfully downloaded and saved: {final_filename}")
+
+                # Emit signal that PDF has been saved
+                self.pdf_saved.emit()
 
             except OSError as e:
                 logger.error(f"Failed to rename downloaded file for PMID {pmid}: {e}")

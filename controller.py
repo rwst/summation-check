@@ -438,14 +438,34 @@ class Controller(QObject):
         self.pmc_download_thread.started.connect(self.pmc_download_worker.run)
         self.pmc_download_worker.finished.connect(self.on_pmc_download_finished)
         self.pmc_download_worker.progress.connect(self.status_updated.emit)
+        self.pmc_download_worker.pdf_download_started.connect(self.on_pmc_pdf_download_started)
+        self.pmc_download_worker.pdf_saved.connect(self.on_pmc_pdf_saved)
 
         self.pmc_download_thread.start()
         self.status_updated.emit(f"Downloading {len(pmids)} PDFs from PMC...")
+
+    def on_pmc_pdf_download_started(self):
+        """
+        Shows the PMC download progress label when the first PDF download starts.
+        """
+        if self.view.qc_window and not self.view.qc_window.pmc_download_label.isVisible():
+            self.view.qc_window.pmc_download_label.show()
+
+    def on_pmc_pdf_saved(self):
+        """
+        Called when a PDF is saved. Label stays visible until all downloads complete.
+        """
+        # Label will be hidden in on_pmc_download_finished
+        pass
 
     def on_pmc_download_finished(self, result):
         """
         Handles completion of PMC download worker.
         """
+        # Hide the progress label
+        if self.view.qc_window:
+            self.view.qc_window.pmc_download_label.hide()
+
         # Clean up thread
         self.pmc_download_thread.quit()
         self.pmc_download_thread.wait()
